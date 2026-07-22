@@ -1,12 +1,20 @@
 import { useAuth } from "../hooks/useAuth";
+import { useSonioxTranscription } from "../hooks/useSonioxTranscription";
+import { useWakeLock } from "../hooks/useWakeLock";
+import RecordButton from "../components/RecordButton";
+import TranscriptView from "../components/TranscriptView";
 
 /**
- * Main (and only, besides /login) screen of the app. The live transcription
- * UI (audio capture, Soniox WebSocket, diarized transcript) will be built
- * here in a later step — not implemented yet.
+ * Main screen: live diarized transcription. Composes
+ * `useSonioxTranscription` (audio capture + Soniox WS + transcript state)
+ * with presentational components only — see .clinerules section 10.
  */
 export default function TranscribePage() {
   const { user, signOut } = useAuth();
+  const { status, transcript, error, audioError, start, stop } =
+    useSonioxTranscription();
+
+  useWakeLock(status === "connecting" || status === "recording");
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
@@ -21,9 +29,20 @@ export default function TranscribePage() {
         </button>
       </header>
 
-      <main className="flex flex-1 items-center justify-center p-4 text-slate-400">
-        Přepis se připravuje…
+      <main className="flex-1 overflow-y-auto p-4 pb-32">
+        <TranscriptView transcript={transcript} />
       </main>
+
+      <footer className="fixed inset-x-0 bottom-0 flex flex-col items-center gap-2 bg-gradient-to-t from-slate-50 via-slate-50 to-transparent p-6">
+        {(error || audioError) && (
+          <p className="max-w-sm text-center text-sm text-rose-600">
+            {audioError?.isPermissionDenied
+              ? "Přístup k mikrofonu byl zamítnut. Povol ho v nastavení prohlížeče."
+              : error || audioError?.message}
+          </p>
+        )}
+        <RecordButton status={status} onStart={start} onStop={stop} />
+      </footer>
     </div>
   );
 }
