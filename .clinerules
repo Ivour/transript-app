@@ -1,0 +1,188 @@
+# TranscribeApp — .clinerules
+
+Tento dokument je závazný kontext pro Cline při práci na tomto projektu.
+Před jakoukoliv implementací si tento soubor přečti a dodržuj ho. Pokud si
+u nějakého rozhodnutí nejsi jistý, DOPTEJ SE uživatele, nehádej.
+
+## 0. Shrnutí projektu
+
+Mobilní webová aplikace (primárně iPhone / Safari, prohlížeč, ne nativní app)
+pro živý přepis řeči na text (speech-to-text) v **češtině**, s rozlišením
+mluvčích (**diarizace**). Naprostou prioritou je **nízká latence** přepisu.
+Přepisy se **nikde neukládají** — žijí jen v runtime state prohlížeče a po
+zavření/refreshi stránky mizí. Přepis pro STT je **Soniox** (realtime API).
+Autentizace a vydávání krátkodobých přístupových klíčů řeší **Supabase**.
+Aplikace je určena jen pro autora (žádná veřejná registrace) — cílem
+přihlašování je ochrana Soniox kreditu, ne multi-tenant systém.
+
+## 1. Tech stack (dle package.json)
+
+- **React 19** + **Vite 8** (`@vitejs/plugin-react`)
+- **TypeScript** ~6.0 (strict, viz tsconfig.*.json)
+- **Tailwind CSS 4** přes `@tailwindcss/vite` plugin (žádný `tailwind.config.js`,
+  konfigurace přes CSS `@theme`/`@import "tailwindcss"` v `src/index.css`)
+- **react-router 8** — routing (i když app může být fakticky jednostránková)
+- **@supabase/supabase-js 2** — Auth + volání Edge Functions
+- **clsx** + **tailwind-merge** — kombinování classNames (typicky přes `cn()` helper)
+- **lucide-react** — ikony
+- ESLint (flat config) + typescript-eslint — lint musí projít bez chyb
+- Node verze je pinnutá v `.nvmrc` (24)
+- Package manager: **výhradně pnpm**
+
+## 2. Workflow — ZÁVAZNÉ
+
+- **Před jakoukoliv instalací balíčků nebo spouštěním npm/node skriptů vždy
+  nejprve zavolej `nvm use`** (v rámci téhož shell příkazu, protože každý
+  `execute_command` běží v novém terminálu, např.:
+  `nvm use && pnpm install nazev-balicku`).
+- **Používej výhradně `pnpm`** — nikdy `npm` ani `yarn` (žádné `npm install`,
+  `npx` apod.). Pro jednorázové spuštění CLI nástrojů použij `pnpm dlx`.
+- Neupravuj `pnpm-lock.yaml` ručně, jen přes `pnpm` příkazy.
+- Po netriviálních změnách spusť `pnpm lint` a `tsc -b --noEmit` (nebo
+  `pnpm build`), aby se odhalily typové/lint chyby dřív než je najde uživatel.
+
+## 3. Bezpečnostní architektura klíčů (KRITICKÉ)
+
+**Trvalý Soniox API klíč nikdy nesmí být v kódu prohlížeče.** Jakákoliv
+proměnná prostředí s prefixem `VITE_` skončí zabundlovaná ve veřejném JS a je
+čitelná kýmkoliv v DevTools. Aktuální `.env.local` obsahuje
+`VITE_SONIOX_API_KEY` — to je nutné napravit hned v první implementační
+iteraci (přesunout mimo `VITE_` prefix, používat jen server-side).
+
+Flow, který používáme:
+
+1. Uživatel (jen autor appky) se přihlásí přes **Supabase Auth**
+   (e-mail/heslo, registrace přes UI je vypnutá/neexistuje — účet vytvoříš
+   ručně v Supabase dashboardu).
+2. Po přihlášení frontend zavolá **Supabase Edge Function**
+   (`supabase/functions/soniox-token`), a to s Supabase session JWT
+   (`supabase.functions.invoke(...)` už Authorization header přidá
+   automaticky).
+3. Edge Function ověří JWT (Supabase to dělá automaticky, pokud funkce nemá
+   `--no-verify-jwt`), a pokud je platný, zavolá Soniox REST API
+   (`POST https://api.soniox.com/v1/auth/temporary-api-key`) s **trvalým
+   Soniox klíčem uloženým jako Edge Function secret** (`SONIOX_API_KEY`,
+   nastavuje se přes `supabase secrets set`, nikdy v `.env` souborech
+   commitovaných do gitu s výjimkou `.env.local` mimo VCS).
+4. Edge Function vrátí do prohlížeče **krátkodobý (expirace v řádu minut)
+   Soniox dočasný klíč**.
+5. Prohlížeč se s tímto dočasným klíčem připojí **přímo** na Soniox realtime
+   WebSocket (`wss://stt-rt.soniox.com/transcribe-websocket`) a streamuje
+   audio. Supabase již dále do audio streamu nijak nezasahuje — žádný
+   „relay" audia přes server, to by zvyšovalo latenci.
+6. Když dočasný klíč vyexpiruje (dlouhé session), frontend si vyžádá nový
+   přes stejnou Edge Function.
+
+Shrnutí: **Supabase = jen brána k vydávání krátkodobých klíčů, Soniox
+streaming = přímé spojení browser ↔ Soniox.**
+
+## 4. Audio pipeline (browser → Soniox)
+
+Cíl: co nejnižší latence, mono 16 kHz PCM, čeština, diarizace.
+
+- **NEPOUŽÍVAT `MediaRecorder`** jako primární cestu — na iOS Safari
+  podporuje jen kontejnery typu `audio/mp4` (AAC) s výraznou vnitřní
+  bufferizací a zpožděním, což je pro low-latency streaming nevhodné.
+- Použít **`getUserMedia` → `AudioContext` → `AudioWorkletNode`**, který
+  dostává raw `Float32Array` audio sampl po samplu/blocku.
+- Ve worklet processoru (`src/audio/*.worklet.ts` nebo podobně) resamplovat
+  na **16 kHz mono** (iOS Safari má fixní hardwarový sample rate, typicky
+  48 kHz — vlastní resampling je nutný, protože `AudioContext({sampleRate})`
+  na iOS nemusí být respektováno) a zkonvertovat na **PCM 16-bit signed
+  little-endian (`pcm_s16le`)**.
+- Odesílat binární chunky přes WebSocket v malých intervalech (řádově
+  ~100–150 ms audia na chunk) — menší chunk = nižší latence, ale vyšší
+  overhead; toto je hodnota k experimentálnímu doladění.
+- Konfigurace Soniox WS session: realtime model, `language_hints: ["cs"]`,
+  `enable_speaker_diarization: true`, audio formát odpovídající tomu, co
+  reálně posíláme (`pcm_s16le`, sample_rate 16000, num_channels 1).
+- Soniox streamuje tokeny zpět s příznakem final/non-final a s `speaker`
+  identifikátorem u diarizace — na tom stojí UI (viz níže).
+- WebSocket lifecycle (open/reconnect/close), audio graf (AudioContext,
+  MediaStreamSource, WorkletNode) a Soniox session logiku zapouzdřit do
+  jednoho custom hooku, např. `useSonioxTranscription()` v `src/hooks/`.
+
+## 5. iOS Safari — specifika, na která nesmíme zapomenout
+
+- `AudioContext` (a `audioContext.resume()`) **musí** být vytvořen/spuštěn
+  synchronně v reakci na uživatelské gesto (tap na tlačítko „Start"),
+  jinak ho Safari nepovolí spustit.
+- Aplikace musí běžet přes **HTTPS** i při testování na telefonu
+  (`getUserMedia` to na iOS vyžaduje) — počítat s tím při lokálním vývoji
+  (např. Vite dev server s HTTPS, nebo tunelovací nástroj).
+- Ošetřit přerušení audio session: příchozí hovor, přepnutí appky do
+  pozadí, zamčení telefonu — v těchto případech iOS může audio graf zabít;
+  je třeba detekovat stav (`visibilitychange`, `AudioContext.onstatechange`)
+  a nabídnout uživateli restart nahrávání, ne tichý pád.
+- Zvážit **Wake Lock API** (`navigator.wakeLock`), aby obrazovka nezhasla
+  během delšího přepisu (na iOS podporováno od novějších verzí Safari;
+  ošetřit fallback, když není k dispozici).
+- Testovat primárně na reálném iPhone Safari, ne jen v desktop DevTools
+  emulaci — chování `getUserMedia`/`AudioContext` se liší.
+
+## 6. Diarizace a UI přepisu
+
+- Rozlišovat **final** tokeny (definitivní, neměnný text) a **non-final**
+  tokeny (průběžný, může se ještě změnit) — non-final zobrazovat vizuálně
+  odlišeně (např. světlejší/šedý text, případně kurzíva), final zobrazovat
+  plnou barvou.
+- Skupinovat text podle mluvčích (`speaker` z Soniox) — např. jako bubliny/
+  sekce s barevným odlišením nebo štítkem „Mluvčí 1", „Mluvčí 2" atd.
+  Barvu/label mluvčího odvozovat deterministicky od ID mluvčího (stejný
+  mluvčí = stejná barva po celou dobu session).
+- UI musí zvládat plynulé promazávání/nahrazování non-final části textu při
+  příchodu nových tokenů bez „poskakování" layoutu.
+- Žádné trvalé úložiště přepisu: state žije v React (`useState`/`useReducer`
+  v rámci hooku ze sekce 4), reset při refreshi je očekávané a v pořádku.
+
+## 7. Supabase — rozsah použití
+
+- Používáme **jen Supabase Auth** (přihlášení jediného uživatele) a
+  **Edge Functions** (vydávání dočasného Soniox klíče).
+- **Žádné databázové tabulky, žádné migrace** — pokud se do budoucna
+  neobjeví konkrétní požadavek (např. rate limiting, log použití), složka
+  `supabase/migrations` se nevytváří ani nepoužívá bez explicitního zadání
+  uživatelem.
+- Pokud se přesto v budoucnu migrace objeví: vytvářet je ve
+  `supabase/migrations`, uživatel je pak nahrává (migruje) do Supabase
+  ručně sám — Cline migrace nikdy nespouští automaticky proti vzdálené
+  databázi.
+- Edge Functions patří do `supabase/functions/<jmeno-funkce>/index.ts`.
+  Secrets (`SONIOX_API_KEY` apod.) se nastavují přes Supabase CLI
+  (`supabase secrets set ...`), nikdy nekomitovat do repozitáře.
+
+## 8. Proměnné prostředí
+
+- `VITE_*` proměnné jsou veřejné (bundlují se do klientského JS) — smí
+  obsahovat jen věci, které je v pořádku zveřejnit: `VITE_SUPABASE_URL`,
+  `VITE_SUPABASE_ANON_KEY` (Supabase anon klíč je navržen jako publikovatelný
+  za předpokladu správných RLS/Auth pravidel).
+- **`VITE_SONIOX_API_KEY` se nesmí používat** — Soniox trvalý klíč žije
+  pouze jako Supabase Edge Function secret, nikdy ve frontendovém `.env`.
+- `.env.local` je vždy mimo git (ověřit `.gitignore`).
+
+## 9. Struktura projektu (cílová)
+
+```
+src/
+  components/       # znovupoužitelné UI komponenty (Tailwind)
+  hooks/            # useSonioxTranscription, useAudioCapture, useAuth...
+  audio/            # AudioWorklet processor(y), resampling utils
+  lib/              # supabase klient, Soniox typy/konstanty, cn() helper
+  routes/ (nebo App.tsx) # react-router obrazovky (login, přepis)
+supabase/
+  functions/
+    soniox-token/   # Edge Function vracející dočasný Soniox klíč
+```
+
+## 10. Obecné konvence
+
+- TypeScript strict, žádné `any` bez opravdu dobrého důvodu.
+- Komponenty funkční, hooky pro veškerou stavovou/side-effect logiku
+  (audio, WS, auth) — komponenty samotné držet co nejvíc „hloupé" (UI only).
+- Commitovat/psát kód v angličtině (proměnné, komentáře), komunikace
+  s uživatelem v konverzaci může být v češtině.
+- Než se pustíš do netriviální implementační volby (např. velikost audio
+  chunků, konkrétní Soniox model, detaily reconnect logiky), a nejsi si
+  jistý dopadem na latenci nebo UX, raději se uživatele doptej, než abys
+  předpokládal.
