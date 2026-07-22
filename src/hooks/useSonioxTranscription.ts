@@ -164,6 +164,15 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
     setStatus("connecting");
 
     try {
+      // Kick off mic capture and the Soniox temporary-key fetch in
+      // parallel — starting the mic as early as possible (right after the
+      // user's tap) minimizes the window where speech happens before
+      // we're actually recording. PCM chunks that arrive before the
+      // WebSocket is open/configured are safely buffered in
+      // `pendingChunksRef` and flushed once the session is ready, so no
+      // audio is lost either way.
+      const audioCapturePromise = audioCapture.start();
+
       const { apiKey } = await fetchSonioxTemporaryKey();
 
       const socket = new WebSocket(SONIOX_WEBSOCKET_URL);
@@ -216,7 +225,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
         isSessionConfiguredRef.current = false;
       };
 
-      await audioCapture.start();
+      await audioCapturePromise;
     } catch (err) {
       closeSocket();
       audioCapture.stop();
@@ -224,6 +233,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       setStatus("error");
     }
   }, [audioCapture, closeSocket]);
+
 
   useEffect(() => {
     return () => {
