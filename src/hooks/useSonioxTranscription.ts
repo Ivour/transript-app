@@ -7,12 +7,14 @@ import {
   SONIOX_LANGUAGE_HINTS,
   SONIOX_NUM_CHANNELS,
   SONIOX_SAMPLE_RATE,
+  SONIOX_SESSION_EXPIRED_ERROR_TYPE,
   SONIOX_WEBSOCKET_URL,
   fetchSonioxTemporaryKey,
   type SonioxSessionConfig,
   type SonioxWebSocketMessage,
   type SonioxToken,
 } from "../lib/soniox";
+
 import {
   INITIAL_TRANSCRIPT_STATE,
   SPEAKER_COLORS,
@@ -141,6 +143,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
   const pendingChunksRef = useRef<ArrayBuffer[]>([]);
   const isSessionConfiguredRef = useRef(false);
 
+
   const sendOrBuffer = useCallback((chunk: ArrayBuffer) => {
     const socket = socketRef.current;
     if (socket && socket.readyState === WebSocket.OPEN && isSessionConfiguredRef.current) {
@@ -175,6 +178,61 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
     pendingChunksRef.current = [];
   }, []);
 
+  /**
+   * Calculates the just-finished session's duration from `startTimeRef`
+   * and logs it to `usage_sessions`. Shared between the manual `stop()`
+   * path and unexpected/server-initiated terminations (e.g. the
+   * `max_session_duration_seconds` cutoff below) so usage stats stay
+   * accurate no matter how the session ended.
+   */
+  const logUsageSession = useCallback(() => {
+    if (!startTimeRef.current) return;
+
+    const durationMs = Date.now() - startTimeRef.current;
+    const durationSeconds = durationMs / 1000;
+    startTimeRef.current = null; // Clear to prevent double logging
+
+    // $0.037846 total cost / 0.46 hours = $0.0822739 USD/hour
+    const COST_PER_HOUR = 0.0822739;
+    const costUsd = (durationSeconds / 3600) * COST_PER_HOUR;
+
+    if (user?.id && durationSeconds >= 1) {
+      supabase
+        .from("usage_sessions")
+        .insert({
+          user_id: user.id,
+          duration_seconds: durationSeconds,
+          cost_usd: parseFloat(costUsd.toFixed(8)),
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.error("Failed to log usage session:", error);
+          }
+        });
+    }
+  }, [user]);
+
+  /**
+   * Full cleanup for sessions that end WITHOUT the user pressing stop:
+   * the Soniox `max_session_duration_seconds` cutoff (see `soniox-token`
+   * Edge Function) or an unexpected network/socket drop. Without this,
+   * the mic (`MediaStreamTrack`) would keep running — and the browser/OS
+   * recording indicator would stay lit — even though transcription has
+   * already stopped server-side, since `audioCapture.stop()` would never
+   * get called. Mirrors what `stop()` does, minus the "finalize" message
+   * (the socket is already gone/gone-away, sending on it is pointless).
+   */
+  const handleUnexpectedTermination = useCallback(
+    (message: string) => {
+      audioCapture.stop();
+      logUsageSession();
+      setError(message);
+      setStatus("error");
+      closeSocket();
+    },
+    [audioCapture, logUsageSession, closeSocket],
+  );
+
   const stop = useCallback(() => {
     setStatus((prev) => (prev === "idle" ? prev : "stopping"));
     audioCapture.stop();
@@ -189,31 +247,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       }
     }
 
-    // Calculate session duration and log stats to Supabase
-    if (startTimeRef.current) {
-      const durationMs = Date.now() - startTimeRef.current;
-      const durationSeconds = durationMs / 1000;
-      startTimeRef.current = null; // Clear to prevent double logging
-
-      // $0.037846 total cost / 0.46 hours = $0.0822739 USD/hour
-      const COST_PER_HOUR = 0.0822739;
-      const costUsd = (durationSeconds / 3600) * COST_PER_HOUR;
-
-      if (user?.id && durationSeconds >= 1) {
-        supabase
-          .from("usage_sessions")
-          .insert({
-            user_id: user.id,
-            duration_seconds: durationSeconds,
-            cost_usd: parseFloat(costUsd.toFixed(8)),
-          })
-          .then(({ error }) => {
-            if (error) {
-              console.error("Failed to log usage session:", error);
-            }
-          });
-      }
-    }
+    logUsageSession();
 
     if (stopTimeoutRef.current) {
       clearTimeout(stopTimeoutRef.current);
@@ -224,7 +258,8 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       setStatus("idle");
       stopTimeoutRef.current = null;
     }, 300);
-  }, [audioCapture, closeSocket, user]);
+  }, [audioCapture, closeSocket, logUsageSession]);
+
 
   const start = useCallback(async () => {
     setError(null);
@@ -287,10 +322,14 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
         }
 
         if (message.error_message) {
-          setError(message.error_message);
-          setStatus("error");
+          const friendlyMessage =
+            message.error_type === SONIOX_SESSION_EXPIRED_ERROR_TYPE
+              ? "Přepis byl automaticky zastaven po 30 minutách (bezpečnostní limit)."
+              : message.error_message;
+          handleUnexpectedTermination(friendlyMessage);
           return;
         }
+
 
         setStatus((prev) => {
           if (prev === "connecting") {
@@ -319,13 +358,21 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       };
 
       socket.onerror = () => {
-        setError("Spojení se Soniox serverem selhalo.");
-        setStatus("error");
+        handleUnexpectedTermination("Spojení se Soniox serverem selhalo.");
       };
 
+      // Fires for genuinely unexpected closes only — our own `closeSocket()`
+      // (used by `stop()` and the error paths above) always nulls out
+      // `onclose` before calling `socket.close()`, so it never re-enters
+      // here. A network drop/server-side close reaching this handler means
+      // `audioCapture.stop()` was never called yet — do it now so the mic
+      // doesn't keep running (and the OS recording indicator lit) after
+      // the transcript has silently died.
       socket.onclose = () => {
         isSessionConfiguredRef.current = false;
+        handleUnexpectedTermination("Spojení se Soniox serverem bylo neočekávaně přerušeno.");
       };
+
 
       await audioCapturePromise;
     } catch (err) {
@@ -334,7 +381,8 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       setError((err as Error).message);
       setStatus("error");
     }
-  }, [audioCapture, closeSocket]);
+  }, [audioCapture, closeSocket, handleUnexpectedTermination]);
+
 
 
   useEffect(() => {

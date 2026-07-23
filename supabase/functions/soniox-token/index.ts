@@ -24,6 +24,22 @@ const SONIOX_TEMPORARY_KEY_URL =
  */
 const TEMPORARY_KEY_TTL_SECONDS = 60;
 
+/**
+ * Hard safety cap on a single transcription session's duration, in seconds.
+ * Enforced server-side by Soniox itself (not by any client-side timer),
+ * because a backgrounded/forgotten browser tab can have its JS timers
+ * throttled or paused entirely, which would make a client-side cutoff
+ * unreliable. When this limit is reached, Soniox sends a final
+ * `temp_api_key_session_expired` error message and closes the WebSocket —
+ * the frontend (`useSonioxTranscription`) reacts by stopping the mic and
+ * showing a friendly message. Purpose: protect Soniox credit if the user
+ * forgets a session running (e.g. in a background tab), not to limit
+ * normal usage — 30 minutes comfortably covers real transcription
+ * sessions. See .clinerules section 3.
+ */
+const MAX_SESSION_DURATION_SECONDS = 30 * 60;
+
+
 interface SonioxTemporaryKeyApiResponse {
   api_key: string;
   expires_at: string;
@@ -69,8 +85,10 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         usage_type: "transcribe_websocket",
         expires_in_seconds: TEMPORARY_KEY_TTL_SECONDS,
+        max_session_duration_seconds: MAX_SESSION_DURATION_SECONDS,
       }),
     });
+
 
     if (!sonioxResponse.ok) {
       const errorBody = await sonioxResponse.text();

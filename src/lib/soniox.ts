@@ -63,7 +63,20 @@ export interface SonioxWebSocketMessage {
   finished?: boolean;
   error_code?: number;
   error_message?: string;
+  /**
+   * Machine-readable error identifier. `temp_api_key_session_expired` is
+   * sent when `max_session_duration_seconds` (configured server-side when
+   * minting the temporary key, see `soniox-token` Edge Function) is
+   * reached — used by `useSonioxTranscription` to show a specific message
+   * instead of a generic connection-failure one.
+   */
+  error_type?: string;
 }
+
+/** `error_type` sent by Soniox when `max_session_duration_seconds` is hit. */
+export const SONIOX_SESSION_EXPIRED_ERROR_TYPE =
+  "temp_api_key_session_expired";
+
 
 // --- Edge Function client -------------------------------------------------
 
