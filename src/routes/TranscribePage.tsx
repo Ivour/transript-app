@@ -6,7 +6,7 @@ import { useWakeLock } from "../hooks/useWakeLock";
 import RecordButton from "../components/RecordButton";
 import TranscriptView from "../components/TranscriptView";
 import { Button } from "@/components/ui/button";
-import { BarChart2, LogOut } from "lucide-react";
+import { BarChart2, LogOut, TentTree } from "lucide-react";
 
 /**
  * Main screen: live diarized transcription. Composes
@@ -14,7 +14,7 @@ import { BarChart2, LogOut } from "lucide-react";
  * with presentational components only — see .clinerules section 10.
  */
 export default function TranscribePage() {
-  const { user, signOut } = useAuth();
+  const { signOut } = useAuth();
   const { status, transcript, error, audioError, start, stop } =
     useSonioxTranscription();
 
@@ -33,7 +33,8 @@ export default function TranscribePage() {
     const threshold = 150;
     const wasNearBottom =
       prevScrollHeight === 0 ||
-      prevScrollHeight - container.scrollTop - container.clientHeight <= threshold;
+      prevScrollHeight - container.scrollTop - container.clientHeight <=
+        threshold;
 
     if (wasNearBottom) {
       container.scrollTop = container.scrollHeight;
@@ -45,8 +46,10 @@ export default function TranscribePage() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-slate-50">
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-        <span className="text-sm font-medium text-slate-500 truncate mr-2">{user?.email}</span>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 text-slate-600">
+          <TentTree className="size-6" />
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
           <Link to="/usage">
             <Button
               variant="ghost"
