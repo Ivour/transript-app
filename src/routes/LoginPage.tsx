@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation } from "react-router";
 import { useAuth } from "../hooks/useAuth";
-import { cn } from "../lib/cn";
+import { Button } from "@/components/ui/button";
 
 /**
  * Single-user sign-in screen. No public sign-up exists in this app — the
@@ -81,16 +81,13 @@ export default function LoginPage() {
 
         {error && <p className="text-sm text-rose-600">{error}</p>}
 
-        <button
+        <Button
           type="submit"
           disabled={isSubmitting}
-          className={cn(
-            "w-full rounded-lg bg-slate-900 px-3 py-2 font-medium text-white transition",
-            "hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60",
-          )}
+          className="w-full bg-slate-900 text-white hover:bg-slate-800 cursor-pointer"
         >
           {isSubmitting ? "Přihlašuji…" : "Přihlásit se"}
-        </button>
+        </Button>
       </form>
     </div>
   );

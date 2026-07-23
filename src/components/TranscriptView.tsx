@@ -1,9 +1,18 @@
-import { SPEAKER_COLORS, type TranscriptState } from "../lib/transcript";
-import { cn } from "../lib/cn";
+import { type TranscriptState } from "../lib/transcript";
+import { Badge } from "@/components/ui/badge";
 
 interface TranscriptViewProps {
   transcript: TranscriptState;
 }
+
+const BADGE_VARIANTS = [
+  "sky",
+  "emerald",
+  "amber",
+  "fuchsia",
+  "rose",
+  "indigo",
+] as const;
 
 /**
  * Renders diarized transcript segments as speaker-labeled bubbles. Final
@@ -26,9 +35,9 @@ export default function TranscriptView({ transcript }: TranscriptViewProps) {
         const speaker = segment.speakerId
           ? transcript.speakers[segment.speakerId]
           : null;
-        const colorClass = speaker
-          ? SPEAKER_COLORS[speaker.colorIndex]
-          : "text-slate-700";
+        const variant = speaker
+          ? BADGE_VARIANTS[speaker.colorIndex]
+          : "slate";
 
         if (!segment.finalText && !segment.nonFinalText) {
           return null;
@@ -39,15 +48,18 @@ export default function TranscriptView({ transcript }: TranscriptViewProps) {
             key={segment.id}
             className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100"
           >
-            {speaker && (
-              <p className={cn("mb-1 text-xs font-semibold", colorClass)}>
-                {speaker.label}
-              </p>
-            )}
             <p className="text-base leading-relaxed">
-              <span className="text-slate-900">{segment.finalText}</span>
+              {speaker && (
+                <Badge
+                  variant={variant}
+                  className="mr-2 select-none align-middle"
+                >
+                  {speaker.label}
+                </Badge>
+              )}
+              <span className="text-slate-900 align-middle">{segment.finalText}</span>
               {segment.nonFinalText && (
-                <span className="text-slate-400">
+                <span className="text-slate-400 align-middle">
                   {segment.finalText ? " " : ""}
                   {segment.nonFinalText}
                 </span>
