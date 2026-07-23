@@ -39,11 +39,12 @@ export interface SonioxTemporaryKeyResponse {
 export interface SonioxSessionConfig {
   api_key: string;
   model: string;
-  audio_format: typeof SONIOX_AUDIO_FORMAT;
-  sample_rate: typeof SONIOX_SAMPLE_RATE;
-  num_channels: typeof SONIOX_NUM_CHANNELS;
-  language_hints: readonly string[];
-  enable_speaker_diarization: true;
+  audio_format: string;
+  sample_rate: number;
+  num_channels: number;
+  language_hints: string[];
+  enable_speaker_diarization: boolean;
+  language_hints_strict?: boolean;
 }
 
 /** A single recognized token as streamed back by Soniox. */

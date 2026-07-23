@@ -127,6 +127,15 @@ export default function UsagePage() {
     });
   }, [sessions, viewMode, selectedMonthKey]);
 
+  // Pagination state variables
+  const [page, setPage] = useState<number>(1);
+  const limit = 10;
+  const totalPages = useMemo(() => Math.ceil(filteredSessions.length / limit), [filteredSessions]);
+  const paginatedSessions = useMemo(() => {
+    const start = (page - 1) * limit;
+    return filteredSessions.slice(start, start + limit);
+  }, [filteredSessions, page]);
+
   // Aggregate stats dynamically in memory
   const stats = useMemo(() => {
     const activeSeconds = filteredSessions.reduce((acc, s) => acc + s.duration_seconds, 0);
@@ -320,7 +329,7 @@ export default function UsagePage() {
             ) : (
               <div className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
                 <div className="divide-y divide-slate-150 pprev-list">
-                  {filteredSessions.map((session) => (
+                  {paginatedSessions.map((session) => (
                     <div
                       key={session.id}
                       className="flex items-center justify-between p-3.5 hover:bg-slate-50 transition-colors"
@@ -344,6 +353,33 @@ export default function UsagePage() {
                     </div>
                   ))}
                 </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between border-t border-slate-100 px-3.5 py-3">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setPage((prev: number) => Math.max(prev - 1, 1))}
+                      disabled={page === 1}
+                      aria-label="Předchozí stránka"
+                    >
+                      <ChevronLeft className="size-4 text-slate-600" />
+                    </Button>
+
+                    <span className="text-sm font-bold text-slate-800 tracking-tight">
+                      Stránka {page} z {totalPages}
+                    </span>
+
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setPage((prev: number) => Math.min(prev + 1, totalPages))}
+                      disabled={page === totalPages}
+                      aria-label="Následující stránka"
+                    >
+                      <ChevronRight className="size-4 text-slate-600" />
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>

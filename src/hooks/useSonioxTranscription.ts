@@ -243,8 +243,9 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
           audio_format: SONIOX_AUDIO_FORMAT,
           sample_rate: SONIOX_SAMPLE_RATE,
           num_channels: SONIOX_NUM_CHANNELS,
-          language_hints: SONIOX_LANGUAGE_HINTS,
-          enable_speaker_diarization: true,
+           language_hints: [...SONIOX_LANGUAGE_HINTS],
+           language_hints_strict: true,
+           enable_speaker_diarization: true,
         };
         socket.send(JSON.stringify(config));
         isSessionConfiguredRef.current = true;
