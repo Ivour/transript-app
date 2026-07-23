@@ -3,6 +3,7 @@ import { AuthProvider } from "./hooks/AuthProvider";
 import LoginPage from "./routes/LoginPage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import TranscribePage from "./routes/TranscribePage";
+import UsagePage from "./routes/UsagePage";
 
 function App() {
   return (
@@ -15,6 +16,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <TranscribePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/usage"
+            element={
+              <ProtectedRoute>
+                <UsagePage />
               </ProtectedRoute>
             }
           />

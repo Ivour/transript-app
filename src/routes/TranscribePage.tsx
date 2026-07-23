@@ -1,9 +1,12 @@
 import { useEffect, useRef } from "react";
+import { Link } from "react-router";
 import { useAuth } from "../hooks/useAuth";
 import { useSonioxTranscription } from "../hooks/useSonioxTranscription";
 import { useWakeLock } from "../hooks/useWakeLock";
 import RecordButton from "../components/RecordButton";
 import TranscriptView from "../components/TranscriptView";
+import { Button } from "@/components/ui/button";
+import { BarChart2, LogOut } from "lucide-react";
 
 /**
  * Main screen: live diarized transcription. Composes
@@ -42,14 +45,28 @@ export default function TranscribePage() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-slate-50">
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-        <span className="text-sm text-slate-500">{user?.email}</span>
-        <button
-          type="button"
-          onClick={() => void signOut()}
-          className="text-sm font-medium text-slate-600 hover:text-slate-900"
-        >
-          Odhlásit se
-        </button>
+        <span className="text-sm font-medium text-slate-500 truncate mr-2">{user?.email}</span>
+        <div className="flex items-center gap-1 shrink-0">
+          <Link to="/usage">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Historie a statistiky využití"
+              title="Statistiky využití"
+            >
+              <BarChart2 className="size-4 text-slate-600" />
+            </Button>
+          </Link>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => void signOut()}
+            aria-label="Odhlásit se"
+            title="Odhlásit se"
+          >
+            <LogOut className="size-4 text-slate-600" />
+          </Button>
+        </div>
       </header>
 
       <main ref={mainContainerRef} className="flex-1 overflow-y-auto p-4 pb-32">

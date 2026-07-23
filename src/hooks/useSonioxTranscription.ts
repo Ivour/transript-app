@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAudioCapture } from "./useAudioCapture";
+import { useAuth } from "./useAuth";
+import { supabase } from "../lib/supabase";
 import {
   SONIOX_AUDIO_FORMAT,
   SONIOX_LANGUAGE_HINTS,
@@ -111,6 +113,7 @@ function rebuildTranscriptState(
  * design (see .clinerules section 6).
  */
 export function useSonioxTranscription(): UseSonioxTranscriptionResult {
+  const { user } = useAuth();
   const [status, setStatus] = useState<TranscriptionStatus>("idle");
   const [transcript, setTranscript] = useState<TranscriptState>(
     INITIAL_TRANSCRIPT_STATE,
@@ -121,6 +124,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
   const finalTokensRef = useRef<SonioxToken[]>([]);
   const keepAliveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startTimeRef = useRef<number | null>(null);
   // Buffers PCM chunks that arrive before the WS is open/configured.
   const pendingChunksRef = useRef<ArrayBuffer[]>([]);
   const isSessionConfiguredRef = useRef(false);
@@ -173,6 +177,32 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       }
     }
 
+    // Calculate session duration and log stats to Supabase
+    if (startTimeRef.current) {
+      const durationMs = Date.now() - startTimeRef.current;
+      const durationSeconds = durationMs / 1000;
+      startTimeRef.current = null; // Clear to prevent double logging
+
+      // $0.037846 total cost / 0.46 hours = $0.0822739 USD/hour
+      const COST_PER_HOUR = 0.0822739;
+      const costUsd = (durationSeconds / 3600) * COST_PER_HOUR;
+
+      if (user?.id && durationSeconds >= 1) {
+        supabase
+          .from("usage_sessions")
+          .insert({
+            user_id: user.id,
+            duration_seconds: durationSeconds,
+            cost_usd: parseFloat(costUsd.toFixed(8)),
+          })
+          .then(({ error }) => {
+            if (error) {
+              console.error("Failed to log usage session:", error);
+            }
+          });
+      }
+    }
+
     if (stopTimeoutRef.current) {
       clearTimeout(stopTimeoutRef.current);
     }
@@ -182,7 +212,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       setStatus("idle");
       stopTimeoutRef.current = null;
     }, 300);
-  }, [audioCapture, closeSocket]);
+  }, [audioCapture, closeSocket, user]);
 
   const start = useCallback(async () => {
     setError(null);
@@ -249,7 +279,13 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
           return;
         }
 
-        setStatus((prev) => (prev === "connecting" ? "recording" : prev));
+        setStatus((prev) => {
+          if (prev === "connecting") {
+            startTimeRef.current = Date.now();
+            return "recording";
+          }
+          return prev;
+        });
 
         const tokens = message.tokens ?? [];
         const newFinalTokens = tokens.filter((t) => t.is_final);
