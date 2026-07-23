@@ -1,9 +1,19 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, RefreshCw, BarChart2, AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  ArrowLeft,
+  RefreshCw,
+  BarChart2,
+  AlertCircle,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 
 interface UsageSession {
   id: string;
@@ -12,20 +22,33 @@ interface UsageSession {
   created_at: string;
 }
 
+const CZECH_MONTHS = [
+  "Leden", "Únor", "Březen", "Duben", "Květen", "Červen",
+  "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"
+];
+
 export default function UsagePage() {
   const { user } = useAuth();
-  const [sessions, setUsageSessions] = useState<UsageSession[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+  const [viewMode, setViewMode] = useState<"monthly" | "all-time">("monthly");
+  
+  // Track selected month based on key e.g. "YYYY-MM"
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
 
-  const fetchUsageData = useCallback(async (silent = false) => {
-    if (!silent) {
-      setLoading(prev => prev === true ? prev : true);
-    }
-    setError(prev => prev === null ? prev : null);
-
-    try {
+  // Use TanStack Query for fully cached, safe database querying
+  const {
+    data: sessions = [],
+    isLoading,
+    error,
+    isRefetching,
+    refetch,
+  } = useQuery<UsageSession[]>({
+    queryKey: ["usage-sessions", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
       const { data, error: selectError } = await supabase
         .from("usage_sessions")
         .select("id, duration_seconds, cost_usd, created_at")
@@ -34,34 +57,90 @@ export default function UsagePage() {
       if (selectError) {
         throw selectError;
       }
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
 
-      setUsageSessions(data || []);
-    } catch (err) {
-      console.error("Error fetching usage stats:", err);
-      setError("Nepodařilo se načíst statistiky využití.");
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Defer the initial load to the next event loop tick to ensure zero synchronous state setting during render
-    const timer = setTimeout(() => {
-      fetchUsageData(true);
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [fetchUsageData]);
-
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    fetchUsageData(true);
+  const handleRefresh = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["usage-sessions", user?.id] });
+    refetch();
   };
 
-  // Compute metric summaries
-  const totalSeconds = sessions.reduce((acc, s) => acc + s.duration_seconds, 0);
-  const totalMinutes = totalSeconds / 60;
-  const totalCostUsd = sessions.reduce((acc, s) => acc + Number(s.cost_usd), 0);
+  // Format month key e.g. "2026-07" to Czech "Červenec 2026"
+  const formatMonthLabel = (monthKey: string) => {
+    const [year, month] = monthKey.split("-");
+    const monthIndex = parseInt(month, 10) - 1;
+    return `${CZECH_MONTHS[monthIndex]} ${year}`;
+  };
+
+  // Discover and list all unique chronological month keys ascending (e.g. oldest first)
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>();
+    
+    // Always include current calendar month so it is in the list
+    const now = new Date();
+    const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    months.add(currentKey);
+
+    sessions.forEach(s => {
+      const date = new Date(s.created_at);
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      months.add(`${yyyy}-${mm}`);
+    });
+
+    return Array.from(months).sort((a, b) => a.localeCompare(b));
+  }, [sessions]);
+
+  // Find index of our selected key in the sorted list
+  const selectedIndex = useMemo(() => {
+    const idx = availableMonths.indexOf(selectedMonthKey);
+    return idx !== -1 ? idx : availableMonths.length - 1;
+  }, [availableMonths, selectedMonthKey]);
+
+  // Handle previous button click
+  const handlePrevMonth = () => {
+    if (selectedIndex > 0) {
+      setSelectedMonthKey(availableMonths[selectedIndex - 1]);
+    }
+  };
+
+  // Handle next button click
+  const handleNextMonth = () => {
+    if (selectedIndex < availableMonths.length - 1) {
+      setSelectedMonthKey(availableMonths[selectedIndex + 1]);
+    }
+  };
+
+  const isPrevDisabled = selectedIndex <= 0;
+  const isNextDisabled = selectedIndex >= availableMonths.length - 1;
+
+  // Filtered sessions visible in the log list
+  const filteredSessions = useMemo(() => {
+    if (viewMode === "all-time") return sessions;
+    return sessions.filter(s => {
+      const date = new Date(s.created_at);
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      return `${yyyy}-${mm}` === selectedMonthKey;
+    });
+  }, [sessions, viewMode, selectedMonthKey]);
+
+  // Aggregate stats dynamically in memory
+  const stats = useMemo(() => {
+    const activeSeconds = filteredSessions.reduce((acc, s) => acc + s.duration_seconds, 0);
+    const activeCost = filteredSessions.reduce((acc, s) => acc + Number(s.cost_usd), 0);
+    const totalSeconds = sessions.reduce((acc, s) => acc + s.duration_seconds, 0);
+    const totalCost = sessions.reduce((acc, s) => acc + Number(s.cost_usd), 0);
+
+    return {
+      activeMinutes: activeSeconds / 60,
+      activeCost,
+      totalMinutes: totalSeconds / 60,
+      totalCost,
+    };
+  }, [filteredSessions, sessions]);
 
   const formatDateTime = (isoString: string) => {
     const d = new Date(isoString);
@@ -97,10 +176,10 @@ export default function UsagePage() {
           variant="ghost"
           size="icon-sm"
           onClick={handleRefresh}
-          disabled={loading || isRefreshing}
+          disabled={isLoading || isRefetching}
           aria-label="Obnovit"
         >
-          <RefreshCw className={`size-4 text-slate-600 ${isRefreshing ? "animate-spin" : ""}`} />
+          <RefreshCw className={cn("size-4 text-slate-600", isRefetching && "animate-spin")} />
         </Button>
       </header>
 
@@ -110,32 +189,105 @@ export default function UsagePage() {
           Uživatel: <span className="font-medium text-slate-700">{user?.email}</span>
         </div>
 
-        {/* Totals Widgets cards */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm flex flex-col justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Celkový čas</span>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-2xl font-bold tracking-tight text-slate-900">
-                {totalMinutes ? totalMinutes.toFixed(1) : "0.0"}
-              </span>
-              <span className="text-xs font-medium text-slate-500">minuty</span>
+        {/* Dynamic Month Selector / Tab Selector switcher */}
+        <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <Calendar className="size-4 text-slate-400" />
+              Období
+            </span>
+            <div className="flex gap-1.5 bg-slate-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setViewMode("monthly")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
+                  viewMode === "monthly"
+                    ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-100"
+                    : "text-slate-500 hover:text-slate-900"
+                )}
+              >
+                Měsíční
+              </button>
+              <button
+                onClick={() => setViewMode("all-time")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
+                  viewMode === "all-time"
+                    ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-100"
+                    : "text-slate-500 hover:text-slate-900"
+                )}
+              >
+                Celkově
+              </button>
             </div>
           </div>
 
+          {/* Interactive chevron Month Switcher se šipkami under Monthly Mode */}
+          {viewMode === "monthly" && (
+            <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handlePrevMonth}
+                disabled={isPrevDisabled}
+                aria-label="Předchozí měsíc"
+              >
+                <ChevronLeft className="size-4 text-slate-600" />
+              </Button>
+              
+              <span className="text-sm font-bold text-slate-800 tracking-tight text-center min-w-[140px]">
+                {formatMonthLabel(selectedMonthKey)}
+              </span>
+
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleNextMonth}
+                disabled={isNextDisabled}
+                aria-label="Následující měsíc"
+              >
+                <ChevronRight className="size-4 text-slate-600" />
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Totals Widgets cards */}
+        <div className="grid grid-cols-2 gap-4">
           <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm flex flex-col justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Odhad ceny</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {viewMode === "all-time" ? "Celkový čas" : "Čas v období"}
+            </span>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl font-bold tracking-tight text-slate-900">
+                {stats.activeMinutes.toFixed(1)}
+              </span>
+              <span className="text-xs font-medium text-slate-500">minuty</span>
+            </div>
+            {viewMode !== "all-time" && sessions.length > 0 && (
+              <span className="text-[10px] text-slate-400 mt-1">Celkově: {stats.totalMinutes.toFixed(1)} min</span>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm flex flex-col justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {viewMode === "all-time" ? "Celková cena" : "Cena v období"}
+            </span>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-xs font-medium text-slate-500">$</span>
               <span className="text-2xl font-bold tracking-tight text-slate-900">
-                {totalCostUsd ? totalCostUsd.toFixed(4) : "0.0000"}
+                {stats.activeCost.toFixed(4)}
               </span>
               <span className="text-xs font-medium text-slate-500">USD</span>
             </div>
+            {viewMode !== "all-time" && sessions.length > 0 && (
+              <span className="text-[10px] text-slate-400 mt-1">Celkově: ${stats.totalCost.toFixed(4)}</span>
+            )}
           </div>
         </div>
 
         {/* Loading and Error States */}
-        {loading && (
+        {isLoading && (
           <div className="flex justify-center py-8">
             <RefreshCw className="animate-spin text-slate-400 size-6" />
           </div>
@@ -144,29 +296,31 @@ export default function UsagePage() {
         {error && (
           <div className="rounded-lg bg-rose-50 p-3 ring-1 ring-rose-300/30 text-rose-700 text-sm flex items-center gap-2">
             <AlertCircle className="size-4 shrink-0" />
-            <span>{error}</span>
+            <span>{(error as Error).message || "Nepodařilo se načíst statistiky využití."}</span>
           </div>
         )}
 
         {/* Usage Logs section */}
-        {!loading && !error && (
+        {!isLoading && !error && (
           <div className="space-y-3">
             <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 px-1">
               <BarChart2 className="size-4 text-slate-500" />
-              <span>Historie spojení</span>
+              <span>
+                {viewMode === "all-time" ? "Celá historie spojení" : "Historie spojení v období"}
+              </span>
               <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500 font-normal">
-                {sessions.length}
+                {filteredSessions.length} / {sessions.length}
               </span>
             </h2>
 
-            {sessions.length === 0 ? (
+            {filteredSessions.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-white/50 py-10 text-center">
                 <p className="text-sm text-slate-400">Dosud nebyly zaznamenány žádné přepisy.</p>
               </div>
             ) : (
               <div className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
-                <div className="divide-y divide-slate-150">
-                  {sessions.map((session) => (
+                <div className="divide-y divide-slate-150 pprev-list">
+                  {filteredSessions.map((session) => (
                     <div
                       key={session.id}
                       className="flex items-center justify-between p-3.5 hover:bg-slate-50 transition-colors"
