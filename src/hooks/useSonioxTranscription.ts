@@ -20,8 +20,8 @@ import {
 } from "../lib/transcript";
 import type { AudioCaptureError, AudioCaptureStatus } from "../audio/types";
 
-/** Soniox realtime model used for the live session. */
-const SONIOX_MODEL = "stt-rt-preview";
+/** Soniox realtime model used for the live session — stt-rt-v5 is the latest production-grade low-latency model. */
+const SONIOX_MODEL = "stt-rt-v5";
 
 export type TranscriptionStatus =
   | "idle"
@@ -119,6 +119,8 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
 
   const socketRef = useRef<WebSocket | null>(null);
   const finalTokensRef = useRef<SonioxToken[]>([]);
+  const keepAliveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Buffers PCM chunks that arrive before the WS is open/configured.
   const pendingChunksRef = useRef<ArrayBuffer[]>([]);
   const isSessionConfiguredRef = useRef(false);
@@ -135,6 +137,10 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
   const audioCapture = useAudioCapture({ onPcmChunk: sendOrBuffer });
 
   const closeSocket = useCallback(() => {
+    if (keepAliveIntervalRef.current) {
+      clearInterval(keepAliveIntervalRef.current);
+      keepAliveIntervalRef.current = null;
+    }
     const socket = socketRef.current;
     if (socket) {
       socket.onopen = null;
@@ -156,8 +162,26 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
   const stop = useCallback(() => {
     setStatus((prev) => (prev === "idle" ? prev : "stopping"));
     audioCapture.stop();
-    closeSocket();
-    setStatus("idle");
+
+    const socket = socketRef.current;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      try {
+        // Send a manual finalization command so outstanding words in the last segment are committed
+        socket.send(JSON.stringify({ type: "finalize" }));
+      } catch {
+        // Safe fallback in case of write/network failures
+      }
+    }
+
+    if (stopTimeoutRef.current) {
+      clearTimeout(stopTimeoutRef.current);
+    }
+    // Give Soniox servers 300ms to send the finalized tokens before cleaning up
+    stopTimeoutRef.current = setTimeout(() => {
+      closeSocket();
+      setStatus("idle");
+      stopTimeoutRef.current = null;
+    }, 300);
   }, [audioCapture, closeSocket]);
 
   const start = useCallback(async () => {
@@ -199,6 +223,16 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
           socket.send(chunk);
         }
         pendingChunksRef.current = [];
+
+        // Connection Keep-Alive: send a ping every 10 seconds to keep mobile networks active
+        if (keepAliveIntervalRef.current) {
+          clearInterval(keepAliveIntervalRef.current);
+        }
+        keepAliveIntervalRef.current = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: "keepalive" }));
+          }
+        }, 10000);
       };
 
       socket.onmessage = (event: MessageEvent<string>) => {
@@ -249,6 +283,9 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
 
   useEffect(() => {
     return () => {
+      if (stopTimeoutRef.current) {
+        clearTimeout(stopTimeoutRef.current);
+      }
       closeSocket();
     };
   }, [closeSocket]);
