@@ -22,8 +22,8 @@ export default function TranscribePage() {
   const prevScrollHeightRef = useRef<number>(0);
 
   useWakeLock(status === "connecting" || status === "recording");
-
   // Smart Auto-Scroll: scroll to bottom when new transcripts arrive,
+
   // but only if the user was already near the bottom of the previous content height (threshold 150px).
   useEffect(() => {
     const container = mainContainerRef.current;
