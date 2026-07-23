@@ -75,8 +75,12 @@ export function useAudioCapture({
 
     try {
       // Created synchronously within the caller's user-gesture callback —
-      // do not `await` anything before this line.
-      const audioContext = new AudioContext();
+      // do not `await` anything before this line. `latencyHint: "interactive"`
+      // asks the browser to minimize internal audio buffering (vs. the
+      // "balanced"/"playback" defaults), which reduces the time between mic
+      // input and the worklet receiving it — pure latency win, no effect on
+      // the audio content itself (safe for diarization accuracy).
+      const audioContext = new AudioContext({ latencyHint: "interactive" });
       audioContextRef.current = audioContext;
 
       audioContext.onstatechange = () => {

@@ -25,6 +25,18 @@ import type { AudioCaptureError, AudioCaptureStatus } from "../audio/types";
 /** Soniox realtime model used for the live session — stt-rt-v5 is the latest production-grade low-latency model. */
 const SONIOX_MODEL = "stt-rt-v5";
 
+/**
+ * Caps how many final tokens we keep in memory/rebuild on each message.
+ * Without this, a long (10-30+ min) session would make `rebuildTranscriptState`
+ * reprocess an ever-growing array on every WebSocket message, causing
+ * progressively worse latency/battery drain on mobile. Older tokens beyond
+ * this window are dropped — per product decision, only recent transcript
+ * context matters, nothing is persisted anyway (see .clinerules section 6).
+ * ~600 tokens covers several minutes of continuous speech.
+ */
+const MAX_FINAL_TOKENS = 600;
+
+
 export type TranscriptionStatus =
   | "idle"
   | "connecting"
@@ -67,7 +79,8 @@ function rebuildTranscriptState(
   const segments: TranscriptSegment[] = [];
   const speakers: Record<string, Speaker> = {};
 
-  for (const token of combined) {
+  for (let tokenIndex = 0; tokenIndex < combined.length; tokenIndex++) {
+    const token = combined[tokenIndex];
     const speakerId = token.speaker ?? null;
 
     if (speakerId && !speakers[speakerId]) {
@@ -82,7 +95,6 @@ function rebuildTranscriptState(
     let lastSegment = segments[segments.length - 1];
 
     if (!lastSegment || lastSegment.speakerId !== speakerId) {
-      const tokenIndex = combined.indexOf(token);
       const segmentId = `${speakerId ?? "unknown"}-${token.start_ms ?? `idx-${tokenIndex}`}`;
       lastSegment = {
         id: segmentId,
@@ -293,8 +305,15 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
         const nonFinalTokens = tokens.filter((t) => !t.is_final);
 
         if (newFinalTokens.length > 0) {
-          finalTokensRef.current = [...finalTokensRef.current, ...newFinalTokens];
+          const updated = [...finalTokensRef.current, ...newFinalTokens];
+          // Prune oldest final tokens beyond the cap so rebuildTranscriptState
+          // keeps operating on a bounded array regardless of session length.
+          finalTokensRef.current =
+            updated.length > MAX_FINAL_TOKENS
+              ? updated.slice(updated.length - MAX_FINAL_TOKENS)
+              : updated;
         }
+
 
         setTranscript(() => rebuildTranscriptState(finalTokensRef.current, nonFinalTokens));
       };
