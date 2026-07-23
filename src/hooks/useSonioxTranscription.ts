@@ -9,12 +9,14 @@ import {
   fetchSonioxTemporaryKey,
   type SonioxSessionConfig,
   type SonioxWebSocketMessage,
+  type SonioxToken,
 } from "../lib/soniox";
 import {
   INITIAL_TRANSCRIPT_STATE,
   SPEAKER_COLORS,
   type TranscriptSegment,
   type TranscriptState,
+  type Speaker,
 } from "../lib/transcript";
 import type { AudioCaptureError, AudioCaptureStatus } from "../audio/types";
 
@@ -37,37 +39,33 @@ interface UseSonioxTranscriptionResult {
   stop: () => void;
 }
 
-function createSegmentId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
 /**
- * Applies a batch of Soniox tokens to the current transcript state,
- * grouping consecutive same-speaker tokens into segments and tracking
- * final vs. non-final text per segment (see .clinerules section 6).
- *
- * Soniox re-sends the still-open non-final tail on every message, so each
- * call replaces the previous non-final text rather than appending to it.
+ * Rebuilds the TranscriptState from all cumulative final tokens and the latest non-final tokens.
+ * Since Soniox guarantees final tokens are sent stream-once and non-final tokens are the active tail,
+ * sorting them chronologically and partitioning into speaker-consecutive segments fully resolves out-of-order
+ * finalization/segment duplication issues.
  */
-function applyTokensToTranscript(
-  state: TranscriptState,
-  tokens: SonioxWebSocketMessage["tokens"],
+function rebuildTranscriptState(
+  finalTokens: SonioxToken[],
+  nonFinalTokens: SonioxToken[],
 ): TranscriptState {
-  if (!tokens || tokens.length === 0) {
-    return state;
-  }
+  const combined = [...finalTokens, ...nonFinalTokens];
 
-  const segments = [...state.segments];
-  const speakers = { ...state.speakers };
-
-  // Clear all non-final text up front — it gets rebuilt from this batch.
-  for (let i = 0; i < segments.length; i++) {
-    if (segments[i].nonFinalText) {
-      segments[i] = { ...segments[i], nonFinalText: "" };
+  combined.sort((a, b) => {
+    const startA = a.start_ms ?? 0;
+    const startB = b.start_ms ?? 0;
+    if (startA !== startB) {
+      return startA - startB;
     }
-  }
+    const endA = a.end_ms ?? 0;
+    const endB = b.end_ms ?? 0;
+    return endA - endB;
+  });
 
-  for (const token of tokens) {
+  const segments: TranscriptSegment[] = [];
+  const speakers: Record<string, Speaker> = {};
+
+  for (const token of combined) {
     const speakerId = token.speaker ?? null;
 
     if (speakerId && !speakers[speakerId]) {
@@ -80,9 +78,12 @@ function applyTokensToTranscript(
     }
 
     let lastSegment = segments[segments.length - 1];
+
     if (!lastSegment || lastSegment.speakerId !== speakerId) {
+      const tokenIndex = combined.indexOf(token);
+      const segmentId = `${speakerId ?? "unknown"}-${token.start_ms ?? `idx-${tokenIndex}`}`;
       lastSegment = {
-        id: createSegmentId(),
+        id: segmentId,
         speakerId,
         finalText: "",
         nonFinalText: "",
@@ -90,11 +91,11 @@ function applyTokensToTranscript(
       segments.push(lastSegment);
     }
 
-    const updated: TranscriptSegment = token.is_final
-      ? { ...lastSegment, finalText: lastSegment.finalText + token.text }
-      : { ...lastSegment, nonFinalText: lastSegment.nonFinalText + token.text };
-
-    segments[segments.length - 1] = updated;
+    if (token.is_final) {
+      lastSegment.finalText += token.text;
+    } else {
+      lastSegment.nonFinalText += token.text;
+    }
   }
 
   return { segments, speakers };
@@ -117,6 +118,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
   const [error, setError] = useState<string | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
+  const finalTokensRef = useRef<SonioxToken[]>([]);
   // Buffers PCM chunks that arrive before the WS is open/configured.
   const pendingChunksRef = useRef<ArrayBuffer[]>([]);
   const isSessionConfiguredRef = useRef(false);
@@ -161,6 +163,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
   const start = useCallback(async () => {
     setError(null);
     setTranscript(INITIAL_TRANSCRIPT_STATE);
+    finalTokensRef.current = [];
     setStatus("connecting");
 
     try {
@@ -213,7 +216,16 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
         }
 
         setStatus((prev) => (prev === "connecting" ? "recording" : prev));
-        setTranscript((prev) => applyTokensToTranscript(prev, message.tokens));
+
+        const tokens = message.tokens ?? [];
+        const newFinalTokens = tokens.filter((t) => t.is_final);
+        const nonFinalTokens = tokens.filter((t) => !t.is_final);
+
+        if (newFinalTokens.length > 0) {
+          finalTokensRef.current = [...finalTokensRef.current, ...newFinalTokens];
+        }
+
+        setTranscript(() => rebuildTranscriptState(finalTokensRef.current, nonFinalTokens));
       };
 
       socket.onerror = () => {
