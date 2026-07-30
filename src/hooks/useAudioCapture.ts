@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CHUNK_DURATION_MS,
+  DEFAULT_NOISE_GATE_AMOUNT,
+  NOISE_GATE_PARAM_NAME,
   PCM_RECORDER_PROCESSOR_NAME,
   PCM_RECORDER_WORKLET_URL,
   TARGET_SAMPLE_RATE,
@@ -10,6 +12,13 @@ import type { AudioCaptureError, AudioCaptureStatus } from "../audio/types";
 interface UseAudioCaptureOptions {
   /** Called on the main thread with each resampled PCM s16le chunk. */
   onPcmChunk: (chunk: ArrayBuffer) => void;
+  /**
+   * Called ~10x/second with the current smoothed mic input level (dBFS),
+   * as measured by the AudioWorklet's noise-gate envelope follower.
+   * Powers the live level meter next to the sensitivity slider. Optional
+   * — omit if the level meter isn't needed.
+   */
+  onLevel?: (db: number) => void;
 }
 
 interface UseAudioCaptureResult {
@@ -22,7 +31,16 @@ interface UseAudioCaptureResult {
    */
   start: () => Promise<void>;
   stop: () => void;
+  /**
+   * Live-updates the noise gate sensitivity (0 = bypassed/off, 1 =
+   * aggressive). Backed by a k-rate AudioParam on the worklet node, so it
+   * takes effect within one render quantum — no reconnect needed. No-op
+   * while not recording; the value is re-applied to the next worklet node
+   * created by `start()` via `pendingNoiseGateAmountRef`.
+   */
+  setNoiseGateAmount: (amount: number) => void;
 }
+
 
 /**
  * Captures microphone audio via getUserMedia -> AudioContext ->
@@ -33,6 +51,7 @@ interface UseAudioCaptureResult {
  */
 export function useAudioCapture({
   onPcmChunk,
+  onLevel,
 }: UseAudioCaptureOptions): UseAudioCaptureResult {
   const [status, setStatus] = useState<AudioCaptureStatus>("idle");
   const [error, setError] = useState<AudioCaptureError | null>(null);
@@ -42,10 +61,20 @@ export function useAudioCapture({
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const onPcmChunkRef = useRef(onPcmChunk);
+  const onLevelRef = useRef(onLevel);
+  // Holds the sensitivity value across `stop()`/`start()` cycles and until
+  // the worklet node exists, so `setNoiseGateAmount` calls made before/
+  // between recordings aren't lost — the next `start()` re-applies it.
+  const noiseGateAmountRef = useRef(DEFAULT_NOISE_GATE_AMOUNT);
 
   useEffect(() => {
     onPcmChunkRef.current = onPcmChunk;
   }, [onPcmChunk]);
+
+  useEffect(() => {
+    onLevelRef.current = onLevel;
+  }, [onLevel]);
+
 
   const teardown = useCallback(() => {
     workletNodeRef.current?.port.close();
@@ -122,14 +151,29 @@ export function useAudioCapture({
           },
         },
       );
-      workletNode.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
-        onPcmChunkRef.current(event.data);
+      workletNode.port.onmessage = (
+        event: MessageEvent<ArrayBuffer | { type: "level"; db: number }>,
+      ) => {
+        const data = event.data;
+        if (data instanceof ArrayBuffer) {
+          onPcmChunkRef.current(data);
+        } else if (data?.type === "level") {
+          onLevelRef.current?.(data.db);
+        }
       };
       workletNodeRef.current = workletNode;
+
+      // Re-apply whatever sensitivity was set (even before this recording
+      // started, or during a previous one) to the freshly created node's
+      // AudioParam.
+      workletNode.parameters
+        .get(NOISE_GATE_PARAM_NAME)
+        ?.setValueAtTime(noiseGateAmountRef.current, audioContext.currentTime);
 
       sourceNode.connect(workletNode);
 
       setStatus("recording");
+
     } catch (err) {
       teardown();
       const domError = err as DOMException;
@@ -162,11 +206,25 @@ export function useAudioCapture({
     };
   }, []);
 
+  const setNoiseGateAmount = useCallback((amount: number) => {
+    noiseGateAmountRef.current = amount;
+    const audioContext = audioContextRef.current;
+    const workletNode = workletNodeRef.current;
+    if (!audioContext || !workletNode) return;
+    // Live update — takes effect on the next render quantum (~2.7 ms),
+    // no reconnect/round-trip needed (see .clinerules low-latency
+    // priority + section 4).
+    workletNode.parameters
+      .get(NOISE_GATE_PARAM_NAME)
+      ?.setValueAtTime(amount, audioContext.currentTime);
+  }, []);
+
   useEffect(() => {
     return () => {
       teardown();
     };
   }, [teardown]);
 
-  return { status, error, start, stop };
+  return { status, error, start, stop, setNoiseGateAmount };
 }
+

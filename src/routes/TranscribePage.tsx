@@ -1,12 +1,14 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useAuth } from "../hooks/useAuth";
 import { useSonioxTranscription } from "../hooks/useSonioxTranscription";
 import { useWakeLock } from "../hooks/useWakeLock";
 import RecordButton from "../components/RecordButton";
 import TranscriptView from "../components/TranscriptView";
+import SensitivitySlider from "../components/SensitivitySlider";
 import { Button } from "@/components/ui/button";
 import { BarChart2, LogOut, TentTree } from "lucide-react";
+import { DEFAULT_NOISE_GATE_AMOUNT } from "../audio/constants";
 
 /**
  * Main screen: live diarized transcription. Composes
@@ -15,15 +17,34 @@ import { BarChart2, LogOut, TentTree } from "lucide-react";
  */
 export default function TranscribePage() {
   const { signOut } = useAuth();
-  const { status, transcript, error, audioError, start, stop } =
-    useSonioxTranscription();
+  const {
+    status,
+    transcript,
+    error,
+    audioError,
+    start,
+    stop,
+    micLevelDb,
+    setNoiseGateAmount,
+  } = useSonioxTranscription();
+
+  // Intentionally NOT persisted (localStorage/etc.) — resets to "off" on
+  // every fresh page load, per product decision.
+  const [noiseGateAmount, setNoiseGateAmountState] = useState(
+    DEFAULT_NOISE_GATE_AMOUNT,
+  );
+
+  const handleNoiseGateAmountChange = (amount: number) => {
+    setNoiseGateAmountState(amount);
+    setNoiseGateAmount(amount);
+  };
 
   const mainContainerRef = useRef<HTMLElement | null>(null);
   const prevScrollHeightRef = useRef<number>(0);
 
   useWakeLock(status === "connecting" || status === "recording");
-  // Smart Auto-Scroll: scroll to bottom when new transcripts arrive,
 
+  // Smart Auto-Scroll: scroll to bottom when new transcripts arrive,
   // but only if the user was already near the bottom of the previous content height (threshold 150px).
   useEffect(() => {
     const container = mainContainerRef.current;
@@ -46,10 +67,17 @@ export default function TranscribePage() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-slate-50">
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-        <div className="flex items-center gap-1.5 text-slate-600">
+        <div className="flex shrink-0 items-center gap-1.5 text-slate-600">
           <TentTree className="size-6" />
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+
+        <SensitivitySlider
+          amount={noiseGateAmount}
+          onAmountChange={handleNoiseGateAmountChange}
+          micLevelDb={micLevelDb}
+        />
+
+        <div className="flex shrink-0 items-center gap-3">
           <Link to="/usage">
             <Button
               variant="ghost"

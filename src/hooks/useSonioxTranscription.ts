@@ -22,7 +22,9 @@ import {
   type TranscriptState,
   type Speaker,
 } from "../lib/transcript";
+import { NOISE_GATE_LEVEL_METER_MIN_DB } from "../audio/constants";
 import type { AudioCaptureError, AudioCaptureStatus } from "../audio/types";
+
 
 /** Soniox realtime model used for the live session — stt-rt-v5 is the latest production-grade low-latency model. */
 const SONIOX_MODEL = "stt-rt-v5";
@@ -53,7 +55,12 @@ interface UseSonioxTranscriptionResult {
   audioError: AudioCaptureError | null;
   start: () => Promise<void>;
   stop: () => void;
+  /** Current live mic input level (dBFS), for the sensitivity slider's level meter. */
+  micLevelDb: number;
+  /** Live-updates the noise gate ("sensitivity") — 0 = off, 1 = aggressive. */
+  setNoiseGateAmount: (amount: number) => void;
 }
+
 
 /**
  * Rebuilds the TranscriptState from all cumulative final tokens and the latest non-final tokens.
@@ -133,6 +140,8 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
     INITIAL_TRANSCRIPT_STATE,
   );
   const [error, setError] = useState<string | null>(null);
+  const [micLevelDb, setMicLevelDb] = useState(NOISE_GATE_LEVEL_METER_MIN_DB);
+
 
   const socketRef = useRef<WebSocket | null>(null);
   const finalTokensRef = useRef<SonioxToken[]>([]);
@@ -153,7 +162,11 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
     }
   }, []);
 
-  const audioCapture = useAudioCapture({ onPcmChunk: sendOrBuffer });
+  const audioCapture = useAudioCapture({
+    onPcmChunk: sendOrBuffer,
+    onLevel: setMicLevelDb,
+  });
+
 
   const closeSocket = useCallback(() => {
     if (keepAliveIntervalRef.current) {
@@ -404,7 +417,10 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
     audioError: audioCapture.error,
     start,
     stop,
+    micLevelDb,
+    setNoiseGateAmount: audioCapture.setNoiseGateAmount,
   };
 }
+
 
 export type { AudioCaptureStatus };
