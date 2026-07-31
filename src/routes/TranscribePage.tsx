@@ -71,12 +71,6 @@ export default function TranscribePage() {
           <TentTree className="size-6" />
         </div>
 
-        <SensitivitySlider
-          amount={noiseGateAmount}
-          onAmountChange={handleNoiseGateAmountChange}
-          micLevelDb={micLevelDb}
-        />
-
         <div className="flex shrink-0 items-center gap-3">
           <Link to="/usage">
             <Button
@@ -112,7 +106,16 @@ export default function TranscribePage() {
               : error || audioError?.message}
           </p>
         )}
-        <RecordButton status={status} onStart={start} onStop={stop} />
+        <div className="flex w-full max-w-sm items-center gap-4">
+          <SensitivitySlider
+            amount={noiseGateAmount}
+            onAmountChange={handleNoiseGateAmountChange}
+            micLevelDb={micLevelDb}
+          />
+          <div className="shrink-0">
+            <RecordButton status={status} onStart={start} onStop={stop} />
+          </div>
+        </div>
       </footer>
     </div>
   );

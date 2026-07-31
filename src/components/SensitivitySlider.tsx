@@ -13,12 +13,11 @@ interface SensitivitySliderProps {
 }
 
 /**
- * Compact "sensitivity" control sized to fit in the navbar on mobile
- * (between the logo and the header icon buttons). Tunes the noise gate
- * that runs inside the AudioWorklet (see .clinerules — this reduces audio
- * picked up from quieter background sources like a TV, independent from
- * Soniox/diarization). Left = gate off (today's default behavior), right
- * = aggressive gating.
+ * Compact "sensitivity" control, placed in the footer next to the record
+ * button on mobile (see .clinerules — this reduces audio picked up from
+ * quieter background sources like a TV, independent from Soniox/
+ * diarization). Left = gate off (today's default behavior), right =
+ * aggressive gating.
  *
  * Shows a live mic-level meter (with a marker for the currently selected
  * threshold) above the slider, plus the actual dB threshold value (not
@@ -36,7 +35,7 @@ export default function SensitivitySlider({
   const thresholdPercent = isOff ? null : dbToMeterPercent(thresholdDb);
 
   return (
-    <div className="flex w-28 flex-col gap-1 sm:w-36">
+    <div className="flex min-w-0 flex-1 flex-col gap-1">
       {/* Live mic level meter, with a marker showing the current gate threshold. */}
       <div className="relative h-1 w-full overflow-hidden rounded-full bg-slate-200">
         <div
