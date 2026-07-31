@@ -46,8 +46,19 @@ export const DEFAULT_NOISE_GATE_AMOUNT = 0;
 /** dB threshold when the slider is barely above 0 — gentle gating. */
 export const NOISE_GATE_MIN_THRESHOLD_DB = -50;
 
-/** dB threshold when the slider is at its max — aggressive gating. */
-export const NOISE_GATE_MAX_THRESHOLD_DB = -18;
+/**
+ * dB threshold when the slider is at its max — aggressive gating.
+ *
+ * Widened from -18 to -8 dB (2026-07) to cover noisy venues (e.g. a pub
+ * with background chatter/music), where the ambient noise floor picked up
+ * by a lav mic can sit well above what a quieter home/TV background
+ * produces. -18 dB was tuned against a home TV background and left no
+ * headroom for louder rooms — at 100% slider the gate would never close.
+ * Recalibrate live against the level meter, not against a remembered
+ * slider position, since the same % now maps to a different dB value.
+ */
+export const NOISE_GATE_MAX_THRESHOLD_DB = -8;
+
 
 /** Maps a slider amount (0..1) to the dB threshold the worklet gate uses. */
 export function noiseGateAmountToThresholdDb(amount: number): number {

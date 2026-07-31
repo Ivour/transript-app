@@ -36,9 +36,20 @@
 
 const NOISE_GATE_PARAM_NAME = "noiseGateAmount";
 const NOISE_GATE_MIN_THRESHOLD_DB = -50;
-const NOISE_GATE_MAX_THRESHOLD_DB = -18;
-/** Gap (dB) between the open and close thresholds — prevents rapid on/off chatter right at the boundary. */
-const GATE_HYSTERESIS_DB = 6;
+// Widened from -18 to -8 dB (2026-07) to cover noisy venues (pub with
+// background chatter/music) where the ambient noise floor is louder than a
+// quiet home/TV background — keep in sync with src/audio/constants.ts.
+const NOISE_GATE_MAX_THRESHOLD_DB = -8;
+/**
+ * Gap (dB) between the open and close thresholds — prevents rapid on/off
+ * chatter right at the boundary. Bumped from 6 to 8 dB (2026-07) alongside
+ * the wider max threshold: noisier/more variable environments (crowd
+ * chatter, clinking glasses) make the envelope hover closer to the
+ * threshold more often, so a bit more hysteresis buys extra stability at
+ * the cost of slightly less snappy open/close reaction.
+ */
+const GATE_HYSTERESIS_DB = 8;
+
 /** Envelope follower time constants — detection only, not applied to audio directly. */
 const ENVELOPE_ATTACK_MS = 5;
 const ENVELOPE_RELEASE_MS = 150;
