@@ -13,9 +13,11 @@ export const TARGET_SAMPLE_RATE = 16_000;
 /**
  * Size (in ms) of each PCM chunk posted from the worklet to the main
  * thread / sent over the WebSocket. Smaller = lower latency, higher
- * overhead. Starting value per .clinerules section 4 — tune experimentally.
+ * overhead. Lowered from 100 to 60 ms (2026-07) — ~17 msgs/s of ~1.9 KB
+ * each instead of 10, a negligible network/CPU cost for ~40 ms less
+ * mouth-to-text latency. Tune experimentally per .clinerules section 4.
  */
-export const CHUNK_DURATION_MS = 100;
+export const CHUNK_DURATION_MS = 60;
 
 /** Path (served from `public/`) to the AudioWorklet module. */
 export const PCM_RECORDER_WORKLET_URL = "/worklets/pcm-recorder-worklet.js";
