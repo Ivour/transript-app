@@ -7,7 +7,7 @@ import RecordButton from "../components/RecordButton";
 import TranscriptView from "../components/TranscriptView";
 import SensitivitySlider from "../components/SensitivitySlider";
 import { Button } from "@/components/ui/button";
-import { BarChart2, LogOut, TentTree } from "lucide-react";
+import { BarChart2, LogOut, Disc3 } from "lucide-react";
 import { DEFAULT_NOISE_GATE_AMOUNT } from "../audio/constants";
 
 /**
@@ -42,7 +42,8 @@ export default function TranscribePage() {
   const mainContainerRef = useRef<HTMLElement | null>(null);
   const prevScrollHeightRef = useRef<number>(0);
 
-  useWakeLock(status === "connecting" || status === "recording");
+  const isLive = status === "connecting" || status === "recording";
+  useWakeLock(isLive);
 
   // Smart Auto-Scroll: scroll to bottom when new transcripts arrive,
   // but only if the user was already near the bottom of the previous content height (threshold 150px).
@@ -65,21 +66,31 @@ export default function TranscribePage() {
   }, [transcript]);
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-        <div className="flex shrink-0 items-center gap-1.5 text-slate-600">
-          <TentTree className="size-6" />
+    <div className="flex h-dvh flex-col overflow-hidden bg-background">
+      <header className="flex items-center justify-between border-b-2 border-border bg-tape px-4 py-3 text-tape-foreground">
+        <div className="flex shrink-0 items-center gap-2">
+          <Disc3 className="size-6" />
+          <span className="font-display text-sm font-bold tracking-widest uppercase">
+            REC·001
+          </span>
+          {isLive && (
+            <span className="flex items-center gap-1 font-display text-[10px] font-bold tracking-widest text-rec uppercase">
+              <span className="size-1.5 animate-pulse rounded-full bg-rec" />
+              live
+            </span>
+          )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-1">
           <Link to="/usage">
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Historie a statistiky využití"
+              aria-label="Statistiky využití"
               title="Statistiky využití"
+              className="text-tape-foreground hover:bg-tape-foreground/10 hover:text-tape-foreground"
             >
-              <BarChart2 className="size-4 text-slate-600" />
+              <BarChart2 className="size-4" />
             </Button>
           </Link>
           <Button
@@ -88,8 +99,9 @@ export default function TranscribePage() {
             onClick={() => void signOut()}
             aria-label="Odhlásit se"
             title="Odhlásit se"
+            className="text-tape-foreground hover:bg-tape-foreground/10 hover:text-tape-foreground"
           >
-            <LogOut className="size-4 text-slate-600" />
+            <LogOut className="size-4" />
           </Button>
         </div>
       </header>
@@ -98,9 +110,9 @@ export default function TranscribePage() {
         <TranscriptView transcript={transcript} />
       </main>
 
-      <footer className="fixed inset-x-0 bottom-0 flex flex-col items-center gap-2 bg-gradient-to-t from-slate-50 via-slate-50 to-transparent p-6">
+      <footer className="fixed inset-x-0 bottom-0 flex flex-col items-center gap-2 bg-gradient-to-t from-background via-background to-transparent p-6">
         {(error || audioError) && (
-          <p className="max-w-sm text-center text-sm text-rose-600">
+          <p className="max-w-sm rounded-sm border-2 border-border bg-card px-3 py-1.5 text-center text-sm text-destructive shadow-hard-sm">
             {audioError?.isPermissionDenied
               ? "Přístup k mikrofonu byl zamítnut. Povol ho v nastavení prohlížeče."
               : error || audioError?.message}

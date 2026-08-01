@@ -170,16 +170,23 @@ export default function UsagePage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* Top Header */}
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b-2 border-border bg-tape px-4 py-3 text-tape-foreground">
         <div className="flex items-center gap-2">
           <Link to="/">
-            <Button variant="ghost" size="icon-sm" aria-label="Zpět na nahrávání">
-              <ArrowLeft className="size-4 text-slate-600" />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Zpět na nahrávání"
+              className="text-tape-foreground hover:bg-tape-foreground/10 hover:text-tape-foreground"
+            >
+              <ArrowLeft className="size-4" />
             </Button>
           </Link>
-          <span className="text-sm font-semibold text-slate-800">Moje využití</span>
+          <span className="font-display text-sm font-bold tracking-widest uppercase">
+            Počitadlo
+          </span>
         </div>
         <Button
           variant="ghost"
@@ -187,32 +194,33 @@ export default function UsagePage() {
           onClick={handleRefresh}
           disabled={isLoading || isRefetching}
           aria-label="Obnovit"
+          className="text-tape-foreground hover:bg-tape-foreground/10 hover:text-tape-foreground"
         >
-          <RefreshCw className={cn("size-4 text-slate-600", isRefetching && "animate-spin")} />
+          <RefreshCw className={cn("size-4", isRefetching && "animate-spin")} />
         </Button>
       </header>
 
-      <main className="flex-1 p-4 max-w-lg mx-auto w-full space-y-6 pb-20">
+      <main className="mx-auto w-full max-w-lg flex-1 space-y-6 p-4 pb-20">
         {/* User Info Bar */}
-        <div className="text-xs text-slate-500 text-center">
-          Uživatel: <span className="font-medium text-slate-700">{user?.email}</span>
+        <div className="text-center font-display text-xs tracking-wide text-muted-foreground">
+          Uživatel: <span className="font-bold text-foreground">{user?.email}</span>
         </div>
 
         {/* Dynamic Month Selector / Tab Selector switcher */}
-        <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm space-y-3">
+        <div className="space-y-3 rounded-lg border-2 border-border bg-card p-4 shadow-hard-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <Calendar className="size-4 text-slate-400" />
+            <span className="flex items-center gap-1.5 font-display text-xs font-bold tracking-widest text-muted-foreground uppercase">
+              <Calendar className="size-4" />
               Období
             </span>
-            <div className="flex gap-1.5 bg-slate-100 rounded-lg p-0.5">
+            <div className="flex gap-1 rounded-sm border-2 border-border bg-muted p-0.5">
               <button
                 onClick={() => setViewMode("monthly")}
                 className={cn(
-                  "rounded-md px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
+                  "cursor-pointer rounded-sm px-2.5 py-1 font-display text-xs font-bold tracking-wide uppercase transition-all",
                   viewMode === "monthly"
-                    ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-100"
-                    : "text-slate-500 hover:text-slate-900"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 Měsíční
@@ -220,10 +228,10 @@ export default function UsagePage() {
               <button
                 onClick={() => setViewMode("all-time")}
                 className={cn(
-                  "rounded-md px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
+                  "cursor-pointer rounded-sm px-2.5 py-1 font-display text-xs font-bold tracking-wide uppercase transition-all",
                   viewMode === "all-time"
-                    ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-100"
-                    : "text-slate-500 hover:text-slate-900"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 Celkově
@@ -233,7 +241,7 @@ export default function UsagePage() {
 
           {/* Interactive chevron Month Switcher se šipkami under Monthly Mode */}
           {viewMode === "monthly" && (
-            <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
+            <div className="mt-1 flex items-center justify-between border-t-2 border-border pt-3">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -241,10 +249,10 @@ export default function UsagePage() {
                 disabled={isPrevDisabled}
                 aria-label="Předchozí měsíc"
               >
-                <ChevronLeft className="size-4 text-slate-600" />
+                <ChevronLeft className="size-4" />
               </Button>
               
-              <span className="text-sm font-bold text-slate-800 tracking-tight text-center min-w-[140px]">
+              <span className="min-w-[140px] text-center font-display text-sm font-bold tracking-tight">
                 {formatMonthLabel(selectedMonthKey)}
               </span>
 
@@ -255,42 +263,42 @@ export default function UsagePage() {
                 disabled={isNextDisabled}
                 aria-label="Následující měsíc"
               >
-                <ChevronRight className="size-4 text-slate-600" />
+                <ChevronRight className="size-4" />
               </Button>
             </div>
           )}
         </div>
 
-        {/* Totals Widgets cards */}
+        {/* Totals Widgets cards — digital LED-counter style */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm flex flex-col justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <div className="flex flex-col justify-between rounded-lg border-2 border-border bg-tape p-4 shadow-hard-sm">
+            <span className="font-display text-xs font-bold tracking-widest text-tape-foreground/60 uppercase">
               {viewMode === "all-time" ? "Celkový čas" : "Čas v období"}
             </span>
             <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-2xl font-bold tracking-tight text-slate-900">
+              <span className="font-display text-2xl font-bold tracking-tight text-tape-foreground">
                 {stats.activeMinutes.toFixed(1)}
               </span>
-              <span className="text-xs font-medium text-slate-500">minuty</span>
+              <span className="text-xs font-medium text-tape-foreground/60">minuty</span>
             </div>
             {viewMode !== "all-time" && sessions.length > 0 && (
-              <span className="text-[10px] text-slate-400 mt-1">Celkově: {stats.totalMinutes.toFixed(1)} min</span>
+              <span className="mt-1 text-[10px] text-tape-foreground/50">Celkově: {stats.totalMinutes.toFixed(1)} min</span>
             )}
           </div>
 
-          <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm flex flex-col justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <div className="flex flex-col justify-between rounded-lg border-2 border-border bg-tape p-4 shadow-hard-sm">
+            <span className="font-display text-xs font-bold tracking-widest text-tape-foreground/60 uppercase">
               {viewMode === "all-time" ? "Celková cena" : "Cena v období"}
             </span>
             <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-xs font-medium text-slate-500">$</span>
-              <span className="text-2xl font-bold tracking-tight text-slate-900">
+              <span className="text-xs font-medium text-tape-foreground/60">$</span>
+              <span className="font-display text-2xl font-bold tracking-tight text-tape-foreground">
                 {stats.activeCost.toFixed(4)}
               </span>
-              <span className="text-xs font-medium text-slate-500">USD</span>
+              <span className="text-xs font-medium text-tape-foreground/60">USD</span>
             </div>
             {viewMode !== "all-time" && sessions.length > 0 && (
-              <span className="text-[10px] text-slate-400 mt-1">Celkově: ${stats.totalCost.toFixed(4)}</span>
+              <span className="mt-1 text-[10px] text-tape-foreground/50">Celkově: ${stats.totalCost.toFixed(4)}</span>
             )}
           </div>
         </div>
@@ -298,12 +306,12 @@ export default function UsagePage() {
         {/* Loading and Error States */}
         {isLoading && (
           <div className="flex justify-center py-8">
-            <RefreshCw className="animate-spin text-slate-400 size-6" />
+            <RefreshCw className="size-6 animate-spin text-muted-foreground" />
           </div>
         )}
 
         {error && (
-          <div className="rounded-lg bg-rose-50 p-3 ring-1 ring-rose-300/30 text-rose-700 text-sm flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-sm border-2 border-destructive bg-destructive/10 p-3 text-sm text-destructive">
             <AlertCircle className="size-4 shrink-0" />
             <span>{(error as Error).message || "Nepodařilo se načíst statistiky využití."}</span>
           </div>
@@ -312,41 +320,41 @@ export default function UsagePage() {
         {/* Usage Logs section */}
         {!isLoading && !error && (
           <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 px-1">
-              <BarChart2 className="size-4 text-slate-500" />
+            <h2 className="flex items-center gap-1.5 px-1 font-display text-sm font-bold tracking-wide text-foreground uppercase">
+              <BarChart2 className="size-4" />
               <span>
                 {viewMode === "all-time" ? "Celá historie spojení" : "Historie spojení v období"}
               </span>
-              <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500 font-normal">
+              <span className="ml-auto rounded-sm border border-border bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
                 {filteredSessions.length} / {sessions.length}
               </span>
             </h2>
 
             {filteredSessions.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-white/50 py-10 text-center">
-                <p className="text-sm text-slate-400">Dosud nebyly zaznamenány žádné přepisy.</p>
+              <div className="rounded-lg border-2 border-dashed border-border bg-card py-10 text-center">
+                <p className="text-sm text-muted-foreground">Dosud nebyly zaznamenány žádné přepisy.</p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
-                <div className="divide-y divide-slate-150 pprev-list">
+              <div className="overflow-hidden rounded-lg border-2 border-border bg-card shadow-hard-sm">
+                <div className="divide-y-2 divide-border">
                   {paginatedSessions.map((session) => (
                     <div
                       key={session.id}
-                      className="flex items-center justify-between p-3.5 hover:bg-slate-50 transition-colors"
+                      className="flex items-center justify-between p-3.5 transition-colors hover:bg-muted"
                     >
                       <div className="space-y-0.5">
-                        <p className="text-xs font-medium text-slate-400">
+                        <p className="font-display text-xs font-medium text-muted-foreground">
                           {formatDateTime(session.created_at)}
                         </p>
-                        <p className="text-sm font-semibold text-slate-800">
+                        <p className="text-sm font-semibold text-card-foreground">
                           {formatDuration(session.duration_seconds)}
                         </p>
                       </div>
                       <div className="text-right">
-                        <span className="text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                        <span className="font-display text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                           Cena:
                         </span>
-                        <p className="text-sm font-semibold text-slate-950">
+                        <p className="text-sm font-semibold text-card-foreground">
                           ${session.cost_usd ? Number(session.cost_usd).toFixed(5) : "0.00000"}
                         </p>
                       </div>
@@ -354,7 +362,7 @@ export default function UsagePage() {
                   ))}
                 </div>
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between border-t border-slate-100 px-3.5 py-3">
+                  <div className="flex items-center justify-between border-t-2 border-border px-3.5 py-3">
                     <Button
                       variant="ghost"
                       size="icon-sm"
@@ -362,10 +370,10 @@ export default function UsagePage() {
                       disabled={page === 1}
                       aria-label="Předchozí stránka"
                     >
-                      <ChevronLeft className="size-4 text-slate-600" />
+                      <ChevronLeft className="size-4" />
                     </Button>
 
-                    <span className="text-sm font-bold text-slate-800 tracking-tight">
+                    <span className="font-display text-sm font-bold tracking-tight">
                       Stránka {page} z {totalPages}
                     </span>
 
@@ -376,7 +384,7 @@ export default function UsagePage() {
                       disabled={page === totalPages}
                       aria-label="Následující stránka"
                     >
-                      <ChevronRight className="size-4 text-slate-600" />
+                      <ChevronRight className="size-4" />
                     </Button>
                   </div>
                 )}

@@ -4,22 +4,23 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ring-1 transition-colors select-none",
+  "inline-flex items-center rounded-sm border px-2 py-0.5 font-display text-[11px] font-bold tracking-wide uppercase transition-colors select-none",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground hover:bg-primary/80 ring-transparent",
+          "border-border bg-primary text-primary-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 ring-transparent",
-        outline: "text-foreground border-border",
-        sky: "bg-sky-50 text-sky-700 ring-sky-600/10",
-        emerald: "bg-emerald-50 text-emerald-700 ring-emerald-600/10",
-        amber: "bg-amber-50 text-amber-700 ring-amber-600/10",
-        fuchsia: "bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-600/10",
-        rose: "bg-rose-50 text-rose-700 ring-rose-600/10",
-        indigo: "bg-indigo-50 text-indigo-700 ring-indigo-600/10",
-        slate: "bg-slate-50 text-slate-700 ring-slate-600/10",
+          "border-border bg-secondary text-secondary-foreground",
+        outline: "border-border text-foreground",
+        // Vintage "reel label" speaker palette — mustard, olive, rust, teal, plum, ochre.
+        mustard: "border-[oklch(0.4_0.1_75)] bg-[oklch(0.66_0.14_75)] text-[oklch(0.2_0.04_75)]",
+        olive: "border-[oklch(0.32_0.06_130)] bg-[oklch(0.55_0.1_130)] text-[oklch(0.95_0.02_130)]",
+        rust: "border-[oklch(0.3_0.1_30)] bg-[oklch(0.5_0.15_30)] text-[oklch(0.96_0.01_30)]",
+        teal: "border-[oklch(0.3_0.05_195)] bg-[oklch(0.5_0.08_195)] text-[oklch(0.96_0.01_195)]",
+        plum: "border-[oklch(0.28_0.07_330)] bg-[oklch(0.45_0.11_330)] text-[oklch(0.96_0.01_330)]",
+        ochre: "border-[oklch(0.36_0.08_60)] bg-[oklch(0.6_0.12_60)] text-[oklch(0.2_0.03_60)]",
+        slate: "border-border bg-muted text-muted-foreground",
       },
     },
     defaultVariants: {

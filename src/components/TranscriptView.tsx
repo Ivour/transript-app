@@ -6,12 +6,12 @@ interface TranscriptViewProps {
 }
 
 const BADGE_VARIANTS = [
-  "sky",
-  "emerald",
-  "amber",
-  "fuchsia",
-  "rose",
-  "indigo",
+  "teal",
+  "olive",
+  "mustard",
+  "plum",
+  "rust",
+  "ochre",
 ] as const;
 
 /**
@@ -23,8 +23,8 @@ const BADGE_VARIANTS = [
 export default function TranscriptView({ transcript }: TranscriptViewProps) {
   if (transcript.segments.length === 0) {
     return (
-      <p className="text-center text-slate-400">
-        Přepis se zde zobrazí, jakmile začneš mluvit…
+      <p className="text-center font-display text-sm tracking-wide text-muted-foreground">
+        ▸ Přepis se zde zobrazí, jakmile začneš mluvit…
       </p>
     );
   }
@@ -36,7 +36,7 @@ export default function TranscriptView({ transcript }: TranscriptViewProps) {
           ? transcript.speakers[segment.speakerId]
           : null;
         const variant = speaker
-          ? BADGE_VARIANTS[speaker.colorIndex]
+          ? BADGE_VARIANTS[speaker.colorIndex % BADGE_VARIANTS.length]
           : "slate";
 
         if (!segment.finalText && !segment.nonFinalText) {
@@ -46,7 +46,7 @@ export default function TranscriptView({ transcript }: TranscriptViewProps) {
         return (
           <div
             key={segment.id}
-            className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100"
+            className="rounded-md border-2 border-border bg-card p-3 shadow-hard-sm"
           >
             <p className="text-base leading-relaxed">
               {speaker && (
@@ -57,9 +57,11 @@ export default function TranscriptView({ transcript }: TranscriptViewProps) {
                   {speaker.label}
                 </Badge>
               )}
-              <span className="text-slate-900 align-middle">{segment.finalText}</span>
+              <span className="align-middle text-card-foreground">
+                {segment.finalText}
+              </span>
               {segment.nonFinalText && (
-                <span className="text-slate-400 align-middle">
+                <span className="align-middle text-muted-foreground italic">
                   {segment.finalText ? " " : ""}
                   {segment.nonFinalText}
                 </span>
