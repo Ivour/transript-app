@@ -3,7 +3,6 @@ import {
   dbToMeterPercent,
   noiseGateAmountToThresholdDb,
 } from "../audio/constants";
-import { cn } from "../lib/cn";
 
 interface SensitivitySliderProps {
   /** Current gate amount, 0 (off) .. 1 (aggressive). */
@@ -12,8 +11,6 @@ interface SensitivitySliderProps {
   /** Live smoothed mic input level (dBFS), from the AudioWorklet envelope follower. */
   micLevelDb: number;
 }
-
-const METER_SEGMENT_COUNT = 12;
 
 /**
  * Compact "sensitivity" control, placed in the footer next to the record
@@ -26,9 +23,6 @@ const METER_SEGMENT_COUNT = 12;
  * threshold) above the slider, plus the actual dB threshold value (not
  * just a raw percentage) next to it, so the value is meaningful and the
  * user can calibrate it against their real mic/environment.
- *
- * Rendered as a discrete-segment VU meter (vintage tape-deck style) rather
- * than a smooth gradient bar.
  */
 export default function SensitivitySlider({
   amount,
@@ -39,38 +33,21 @@ export default function SensitivitySlider({
   const thresholdDb = noiseGateAmountToThresholdDb(amount);
   const levelPercent = dbToMeterPercent(micLevelDb);
   const thresholdPercent = isOff ? null : dbToMeterPercent(thresholdDb);
-  const litSegments = Math.round((levelPercent / 100) * METER_SEGMENT_COUNT);
-  const thresholdSegment =
-    thresholdPercent !== null
-      ? Math.round((thresholdPercent / 100) * METER_SEGMENT_COUNT)
-      : null;
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-      {/* Live mic level meter: discrete VU segments, red marker at gate threshold. */}
-      <div className="flex h-2 w-full items-center gap-0.5">
-        {Array.from({ length: METER_SEGMENT_COUNT }, (_, i) => {
-          const isLit = i < litSegments;
-          const isHot = i >= METER_SEGMENT_COUNT - 3;
-          const isThresholdMarker = thresholdSegment === i;
-          return (
-            <div
-              key={i}
-              className={cn(
-                "relative h-full flex-1 rounded-[1px] border border-border/60",
-                isLit
-                  ? isHot
-                    ? "bg-rec"
-                    : "bg-[oklch(0.55_0.1_130)]"
-                  : "bg-muted",
-              )}
-            >
-              {isThresholdMarker && (
-                <div className="absolute -top-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-rec" />
-              )}
-            </div>
-          );
-        })}
+    <div className="flex min-w-0 flex-1 flex-col gap-1">
+      {/* Live mic level meter, with a marker showing the current gate threshold. */}
+      <div className="relative h-1 w-full overflow-hidden rounded-full bg-slate-200">
+        <div
+          className="h-full rounded-full bg-emerald-500 transition-[width] duration-75"
+          style={{ width: `${levelPercent}%` }}
+        />
+        {thresholdPercent !== null && (
+          <div
+            className="absolute top-0 h-full w-0.5 bg-rose-500"
+            style={{ left: `${thresholdPercent}%` }}
+          />
+        )}
       </div>
 
       <div className="flex items-center gap-1.5">
@@ -86,8 +63,8 @@ export default function SensitivitySlider({
           className="flex-1"
           aria-label="Citlivost mikrofonu — potlačení tišších zvuků v okolí"
         />
-        <span className="w-9 shrink-0 text-right font-display text-[10px] font-bold tabular-nums text-muted-foreground">
-          {isOff ? "VYP" : `${Math.round(thresholdDb)}dB`}
+        <span className="w-9 shrink-0 text-right text-[10px] font-semibold tabular-nums text-slate-600">
+          {isOff ? "Vyp" : `${Math.round(thresholdDb)}dB`}
         </span>
       </div>
     </div>
