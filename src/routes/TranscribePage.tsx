@@ -136,7 +136,7 @@ export default function TranscribePage() {
 
         <main
           ref={mainContainerRef}
-          className="flex-1 overflow-y-auto p-4 pb-32"
+          className="flex-1 overflow-y-auto p-4 pb-48"
         >
           <TranscriptView transcript={transcript} />
         </main>
