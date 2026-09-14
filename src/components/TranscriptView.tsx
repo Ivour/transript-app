@@ -23,7 +23,7 @@ const BADGE_VARIANTS = [
 export default function TranscriptView({ transcript }: TranscriptViewProps) {
   if (transcript.segments.length === 0) {
     return (
-      <p className="text-center text-slate-400">
+      <p className="text-center text-slate-400 dark:text-slate-500">
         Přepis se zde zobrazí, jakmile začneš mluvit…
       </p>
     );
@@ -46,7 +46,7 @@ export default function TranscriptView({ transcript }: TranscriptViewProps) {
         return (
           <div
             key={segment.id}
-            className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100"
+            className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100 dark:bg-slate-800 dark:ring-slate-700"
           >
             <p className="text-base leading-relaxed">
               {speaker && (
@@ -57,9 +57,11 @@ export default function TranscriptView({ transcript }: TranscriptViewProps) {
                   {speaker.label}
                 </Badge>
               )}
-              <span className="text-slate-900 align-middle">{segment.finalText}</span>
+              <span className="text-slate-900 align-middle dark:text-slate-100">
+                {segment.finalText}
+              </span>
               {segment.nonFinalText && (
-                <span className="text-slate-400 align-middle">
+                <span className="text-slate-400 align-middle dark:text-slate-500">
                   {segment.finalText ? " " : ""}
                   {segment.nonFinalText}
                 </span>

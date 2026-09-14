@@ -34,9 +34,11 @@ export default function RecordButton({
       onClick={isActive ? onStop : onStart}
       disabled={isConnecting || status === "stopping"}
       className={cn(
-        "flex h-16 w-16 items-center justify-center rounded-full text-white shadow-lg transition",
+        "flex h-16 w-16 items-center justify-center rounded-full shadow-lg transition",
         "disabled:cursor-not-allowed disabled:opacity-70",
-        isActive ? "bg-rose-600 hover:bg-rose-500" : "bg-slate-900 hover:bg-slate-800",
+        isActive
+          ? "bg-rose-600 text-white hover:bg-rose-500"
+          : "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200",
       )}
       aria-label={
         isConnecting

@@ -37,7 +37,7 @@ export default function SensitivitySlider({
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1">
       {/* Live mic level meter, with a marker showing the current gate threshold. */}
-      <div className="relative h-1 w-full overflow-hidden rounded-full bg-slate-200">
+      <div className="relative h-1 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
         <div
           className="h-full rounded-full bg-emerald-500 transition-[width] duration-75"
           style={{ width: `${levelPercent}%` }}
@@ -63,7 +63,7 @@ export default function SensitivitySlider({
           className="flex-1"
           aria-label="Citlivost mikrofonu — potlačení tišších zvuků v okolí"
         />
-        <span className="w-9 shrink-0 text-right text-[10px] font-semibold tabular-nums text-slate-600">
+        <span className="w-9 shrink-0 text-right text-[10px] font-semibold tabular-nums text-slate-600 dark:text-slate-300">
           {isOff ? "Vyp" : `${Math.round(thresholdDb)}dB`}
         </span>
       </div>
