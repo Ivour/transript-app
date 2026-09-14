@@ -48,7 +48,10 @@ export default function TranscriptView({ transcript }: TranscriptViewProps) {
             key={segment.id}
             className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100 dark:bg-slate-800 dark:ring-slate-700"
           >
-            <p className="text-base leading-relaxed">
+            <p
+              className="leading-relaxed"
+              style={{ fontSize: "var(--transcript-font-size, 18px)" }}
+            >
               {speaker && (
                 <Badge
                   variant={variant}

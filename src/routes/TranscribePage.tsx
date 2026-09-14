@@ -7,6 +7,7 @@ import { useDarkMode } from "../hooks/useDarkMode";
 import RecordButton from "../components/RecordButton";
 import TranscriptView from "../components/TranscriptView";
 import SensitivitySlider from "../components/SensitivitySlider";
+import FontSizeControl from "../components/FontSizeControl";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { BarChart2, LogOut, Moon, Sun, TentTree } from "lucide-react";
@@ -118,18 +119,20 @@ export default function TranscribePage() {
             </p>
           )}
 
-          <div className="flex w-full max-w-sm items-center justify-center gap-2">
-            <Sun className="size-3.5 text-slate-400 dark:text-slate-500" />
-            <Switch
-              size="sm"
-              checked={isDarkMode}
-              onCheckedChange={toggleDarkMode}
-              aria-label="Přepnout tmavý režim"
-            />
-            <Moon className="size-3.5 text-slate-400 dark:text-slate-500" />
+          <div className="flex w-full max-w-sm items-center justify-between gap-3 rounded-full bg-white py-2 pl-4 pr-2 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
+            <FontSizeControl />
+            <div className="flex items-center gap-2.5">
+              <Sun className="size-4 text-slate-400 dark:text-slate-500" />
+              <Switch
+                checked={isDarkMode}
+                onCheckedChange={toggleDarkMode}
+                aria-label="Přepnout tmavý režim"
+              />
+              <Moon className="size-4 text-slate-400 dark:text-slate-500" />
+            </div>
           </div>
 
-          <div className="flex w-full max-w-sm items-center gap-4">
+          <div className="flex w-full max-w-sm items-center gap-4 rounded-full bg-white py-2 pl-4 pr-2 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
             <SensitivitySlider
               amount={noiseGateAmount}
               onAmountChange={handleNoiseGateAmountChange}
