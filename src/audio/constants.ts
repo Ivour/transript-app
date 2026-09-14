@@ -11,6 +11,44 @@
 export const TARGET_SAMPLE_RATE = 16_000;
 
 /**
+ * "Weak signal" mode — see `useSonioxTranscription`'s `start(audioQualityMode)`
+ * and the switch on `TranscribePage`. Must be chosen BEFORE connecting
+ * (it's baked into the Soniox session config sent once at WS open, and
+ * into the AudioWorkletNode's `processorOptions` at construction) — no
+ * live mid-session switching, unlike the noise gate.
+ *
+ * Trades audio quality for ~4x lower outgoing bitrate: 8 kHz mono
+ * `pcm_mulaw` (G.711 telephony standard, 64 kbps) instead of the default
+ * 16 kHz mono `pcm_s16le` (256 kbps). Intended for 2G/EDGE-class networks
+ * where the default bitrate can't sustain Soniox's real-time cadence
+ * requirement (see .clinerules — Soniox docs: "send audio in real-time or
+ * near real-time speed... prolonged lags may result in disconnection").
+ */
+export type AudioQualityMode = "normal" | "low_bandwidth";
+
+/** Session-only default — always resets to "normal" on page load/refresh. */
+export const DEFAULT_AUDIO_QUALITY_MODE: AudioQualityMode = "normal";
+
+/** Sample rate (Hz) the AudioWorklet resamples to, per quality mode. */
+export const AUDIO_QUALITY_SAMPLE_RATE: Record<AudioQualityMode, number> = {
+  normal: TARGET_SAMPLE_RATE,
+  low_bandwidth: 8_000,
+};
+
+/**
+ * Raw PCM encoding per quality mode. Deliberately reused for BOTH the
+ * AudioWorklet's output encoding (`processorOptions.audioFormat`, see
+ * `pcm-recorder-worklet.js`) AND the Soniox `audio_format` session config
+ * field (see `useSonioxTranscription`) — the string tokens are identical
+ * on both sides (Soniox's raw-format names), so one source of truth
+ * suffices instead of duplicating the mapping.
+ */
+export const AUDIO_QUALITY_FORMAT: Record<AudioQualityMode, "pcm_s16le" | "pcm_mulaw"> = {
+  normal: "pcm_s16le",
+  low_bandwidth: "pcm_mulaw",
+};
+
+/**
  * Size (in ms) of each PCM chunk posted from the worklet to the main
  * thread / sent over the WebSocket. Smaller = lower latency, higher
  * overhead. Lowered from 100 to 60 ms (2026-07) — ~17 msgs/s of ~1.9 KB

@@ -3,10 +3,8 @@ import { useAudioCapture } from "./useAudioCapture";
 import { useAuth } from "./useAuth";
 import { supabase } from "../lib/supabase";
 import {
-  SONIOX_AUDIO_FORMAT,
   SONIOX_LANGUAGE_HINTS,
   SONIOX_NUM_CHANNELS,
-  SONIOX_SAMPLE_RATE,
   SONIOX_SESSION_EXPIRED_ERROR_TYPE,
   SONIOX_WEBSOCKET_URL,
   fetchSonioxTemporaryKey,
@@ -22,7 +20,13 @@ import {
   type TranscriptState,
   type Speaker,
 } from "../lib/transcript";
-import { NOISE_GATE_LEVEL_METER_MIN_DB } from "../audio/constants";
+import {
+  AUDIO_QUALITY_FORMAT,
+  AUDIO_QUALITY_SAMPLE_RATE,
+  DEFAULT_AUDIO_QUALITY_MODE,
+  NOISE_GATE_LEVEL_METER_MIN_DB,
+  type AudioQualityMode,
+} from "../audio/constants";
 import type { AudioCaptureError, AudioCaptureStatus } from "../audio/types";
 
 
@@ -53,7 +57,13 @@ interface UseSonioxTranscriptionResult {
   transcript: TranscriptState;
   error: string | null;
   audioError: AudioCaptureError | null;
-  start: () => Promise<void>;
+  /**
+   * `audioQualityMode` ("normal" by default, or "low_bandwidth" for weak
+   * signal networks — see AUDIO_QUALITY_* in ../audio/constants.ts) is
+   * baked into both the AudioWorklet's output encoding AND the Soniox
+   * session config sent once at WS open — cannot be switched mid-session.
+   */
+  start: (audioQualityMode?: AudioQualityMode) => Promise<void>;
   stop: () => void;
   /** Current live mic input level (dBFS), for the sensitivity slider's level meter. */
   micLevelDb: number;
@@ -274,7 +284,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
   }, [audioCapture, closeSocket, logUsageSession]);
 
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (audioQualityMode: AudioQualityMode = DEFAULT_AUDIO_QUALITY_MODE) => {
     setError(null);
     setTranscript(INITIAL_TRANSCRIPT_STATE);
     finalTokensRef.current = [];
@@ -288,7 +298,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       // WebSocket is open/configured are safely buffered in
       // `pendingChunksRef` and flushed once the session is ready, so no
       // audio is lost either way.
-      const audioCapturePromise = audioCapture.start();
+      const audioCapturePromise = audioCapture.start(audioQualityMode);
 
       const { apiKey } = await fetchSonioxTemporaryKey();
 
@@ -300,8 +310,8 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
         const config: SonioxSessionConfig = {
           api_key: apiKey,
           model: SONIOX_MODEL,
-          audio_format: SONIOX_AUDIO_FORMAT,
-          sample_rate: SONIOX_SAMPLE_RATE,
+          audio_format: AUDIO_QUALITY_FORMAT[audioQualityMode],
+          sample_rate: AUDIO_QUALITY_SAMPLE_RATE[audioQualityMode],
           num_channels: SONIOX_NUM_CHANNELS,
            language_hints: [...SONIOX_LANGUAGE_HINTS],
            language_hints_strict: true,

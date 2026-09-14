@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AUDIO_QUALITY_FORMAT,
+  AUDIO_QUALITY_SAMPLE_RATE,
   CHUNK_DURATION_MS,
+  DEFAULT_AUDIO_QUALITY_MODE,
   DEFAULT_NOISE_GATE_AMOUNT,
   NOISE_GATE_PARAM_NAME,
   PCM_RECORDER_PROCESSOR_NAME,
   PCM_RECORDER_WORKLET_URL,
-  TARGET_SAMPLE_RATE,
+  type AudioQualityMode,
 } from "../audio/constants";
 import type { AudioCaptureError, AudioCaptureStatus } from "../audio/types";
 
 interface UseAudioCaptureOptions {
-  /** Called on the main thread with each resampled PCM s16le chunk. */
+  /**
+   * Called on the main thread with each resampled PCM chunk (encoding
+   * depends on the `audioQualityMode` passed to `start()` — see below).
+   */
   onPcmChunk: (chunk: ArrayBuffer) => void;
   /**
    * Called ~10x/second with the current smoothed mic input level (dBFS),
@@ -28,8 +34,14 @@ interface UseAudioCaptureResult {
    * Starts mic capture. MUST be invoked synchronously from a user gesture
    * (e.g. a button's onClick) — iOS Safari refuses to start/resume an
    * AudioContext otherwise (see .clinerules section 5).
+   *
+   * `audioQualityMode` picks the worklet's output sample rate/encoding
+   * ("normal" 16kHz pcm_s16le by default, or "low_bandwidth" 8kHz
+   * pcm_mulaw for weak-signal networks — see AUDIO_QUALITY_* in
+   * ../audio/constants.ts). Baked into the AudioWorkletNode at
+   * construction — cannot change mid-recording, unlike the noise gate.
    */
-  start: () => Promise<void>;
+  start: (audioQualityMode?: AudioQualityMode) => Promise<void>;
   stop: () => void;
   /**
    * Live-updates the noise gate sensitivity (0 = bypassed/off, 1 =
@@ -44,10 +56,12 @@ interface UseAudioCaptureResult {
 
 /**
  * Captures microphone audio via getUserMedia -> AudioContext ->
- * AudioWorkletNode and streams resampled 16 kHz mono PCM s16le chunks to
- * the caller. Deliberately does NOT use MediaRecorder (see .clinerules
- * section 4). Contains no Soniox/WebSocket logic — that lives in
- * `useSonioxTranscription`, which composes this hook.
+ * AudioWorkletNode and streams resampled mono PCM chunks to the caller —
+ * 16 kHz pcm_s16le by default, or 8 kHz pcm_mulaw when `start()` is called
+ * with `audioQualityMode: "low_bandwidth"` (see AUDIO_QUALITY_* in
+ * ../audio/constants.ts). Deliberately does NOT use MediaRecorder (see
+ * .clinerules section 4). Contains no Soniox/WebSocket logic — that lives
+ * in `useSonioxTranscription`, which composes this hook.
  */
 export function useAudioCapture({
   onPcmChunk,
@@ -98,7 +112,7 @@ export function useAudioCapture({
     setStatus("idle");
   }, [teardown]);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (audioQualityMode: AudioQualityMode = DEFAULT_AUDIO_QUALITY_MODE) => {
     setError(null);
     setStatus("starting");
 
@@ -146,8 +160,9 @@ export function useAudioCapture({
           numberOfOutputs: 0,
           channelCount: 1,
           processorOptions: {
-            targetSampleRate: TARGET_SAMPLE_RATE,
+            targetSampleRate: AUDIO_QUALITY_SAMPLE_RATE[audioQualityMode],
             chunkDurationMs: CHUNK_DURATION_MS,
+            audioFormat: AUDIO_QUALITY_FORMAT[audioQualityMode],
           },
         },
       );

@@ -9,9 +9,12 @@
 // Responsibility: take native mic audio (whatever sample rate iOS/the
 // browser hands us — typically 48 kHz, NOT reliably configurable, see
 // .clinerules section 4 & 5), optionally apply a noise gate ("sensitivity"
-// slider — see section below), then turn it into 16 kHz mono 16-bit signed
-// little-endian PCM, buffered into small chunks and posted to the main
-// thread for sending to Soniox over the WebSocket.
+// slider — see section below), then turn it into mono PCM at the target
+// sample rate/encoding requested via `processorOptions` (16 kHz
+// `pcm_s16le` by default, or 8 kHz `pcm_mulaw` in "low bandwidth" mode —
+// see AUDIO_QUALITY_* in src/audio/constants.ts), buffered into small
+// chunks and posted to the main thread for sending to Soniox over the
+// WebSocket.
 //
 // --- Noise gate ("sensitivity" slider) -------------------------------
 // Runs on the raw native-rate input, BEFORE resampling — adds zero extra
@@ -108,6 +111,50 @@ function floatTo16BitPCM(input) {
   return buffer;
 }
 
+// --- mu-law (G.711) encoding — "low bandwidth" quality mode ------------
+// Standard telephony companding codec: 8-bit samples instead of 16-bit,
+// i.e. half the bytes per sample on top of the lower 8 kHz sample rate
+// used in low-bandwidth mode (see AUDIO_QUALITY_FORMAT/AUDIO_QUALITY_SAMPLE_RATE
+// in src/audio/constants.ts) — together roughly a 4x bitrate reduction vs.
+// the default 16-bit/16kHz PCM. Textbook encode table implementation
+// (BIAS/CLIP/exponent table), operating directly on Float32 samples
+// scaled to the 16-bit signed range instead of routing through
+// floatTo16BitPCM first.
+const MULAW_BIAS = 0x84;
+const MULAW_CLIP = 32635;
+const MULAW_ENCODE_EXPONENT_TABLE = (() => {
+  const table = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) {
+    let exponent = 7;
+    for (let bit = 0x80; (i & bit) === 0 && exponent > 0; bit >>= 1) {
+      exponent--;
+    }
+    table[i] = exponent;
+  }
+  return table;
+})();
+
+function linearToMulawSample(sample) {
+  let sign = (sample >> 8) & 0x80;
+  if (sign !== 0) sample = -sample;
+  sample += MULAW_BIAS;
+  if (sample > MULAW_CLIP) sample = MULAW_CLIP;
+  const exponent = MULAW_ENCODE_EXPONENT_TABLE[(sample >> 7) & 0xff];
+  const mantissa = (sample >> (exponent + 3)) & 0x0f;
+  return ~(sign | (exponent << 4) | mantissa) & 0xff;
+}
+
+function floatToMulaw(input) {
+  const buffer = new ArrayBuffer(input.length);
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < input.length; i++) {
+    const clamped = Math.max(-1, Math.min(1, input[i]));
+    const value = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
+    view[i] = linearToMulawSample(value | 0);
+  }
+  return buffer;
+}
+
 /** RMS amplitude of a block, converted to dBFS (clamped at SILENCE_FLOOR_DB). */
 function computeBlockAmplitudeDb(input) {
   let sumSquares = 0;
@@ -144,6 +191,12 @@ class PcmRecorderProcessor extends AudioWorkletProcessor {
     const processorOptions = (options && options.processorOptions) || {};
     const targetSampleRate = processorOptions.targetSampleRate || 16000;
     const chunkDurationMs = processorOptions.chunkDurationMs || 100;
+    // "pcm_s16le" (default) or "pcm_mulaw" ("low bandwidth" quality mode —
+    // see AUDIO_QUALITY_FORMAT in src/audio/constants.ts). Only affects
+    // which encode function `process()` calls below — `chunkSize` is
+    // counted in samples, not bytes, so it's unaffected by the format's
+    // bytes-per-sample (1 for mulaw, 2 for s16le).
+    this.audioFormat = processorOptions.audioFormat || "pcm_s16le";
 
     // `sampleRate` is a global provided by AudioWorkletGlobalScope — the
     // AudioContext's actual native rate (fixed by the browser/OS).
@@ -248,7 +301,10 @@ class PcmRecorderProcessor extends AudioWorkletProcessor {
       offset += toCopy;
 
       if (this.bufferLength === this.chunkSize) {
-        const pcm = floatTo16BitPCM(this.buffer);
+        const pcm =
+          this.audioFormat === "pcm_mulaw"
+            ? floatToMulaw(this.buffer)
+            : floatTo16BitPCM(this.buffer);
         // Transfer ownership of the buffer to the main thread — avoids a
         // copy, keeps this hot path cheap.
         this.port.postMessage(pcm, [pcm]);

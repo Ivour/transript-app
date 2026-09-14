@@ -15,7 +15,12 @@ import { supabase } from "./supabase";
 export const SONIOX_WEBSOCKET_URL =
   "wss://stt-rt.soniox.com/transcribe-websocket";
 
-/** Audio format the browser sends — must match the AudioWorklet output. */
+/**
+ * Default audio format/sample rate the browser sends — must match the
+ * AudioWorklet output. Used for the "normal" AudioQualityMode; the
+ * "low_bandwidth" mode overrides both via AUDIO_QUALITY_FORMAT /
+ * AUDIO_QUALITY_SAMPLE_RATE (see src/audio/constants.ts) instead of these.
+ */
 export const SONIOX_AUDIO_FORMAT = "pcm_s16le" as const;
 export const SONIOX_SAMPLE_RATE = 16_000;
 export const SONIOX_NUM_CHANNELS = 1;

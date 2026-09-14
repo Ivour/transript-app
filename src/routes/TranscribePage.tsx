@@ -11,8 +11,20 @@ import FontSizeControl from "../components/FontSizeControl";
 import Pill from "../components/Pill";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { BarChart2, LogOut, Moon, Sun, TentTree } from "lucide-react";
-import { DEFAULT_NOISE_GATE_AMOUNT } from "../audio/constants";
+import {
+  BarChart2,
+  LogOut,
+  Moon,
+  SignalHigh,
+  SignalLow,
+  Sun,
+  TentTree,
+} from "lucide-react";
+import {
+  DEFAULT_AUDIO_QUALITY_MODE,
+  DEFAULT_NOISE_GATE_AMOUNT,
+  type AudioQualityMode,
+} from "../audio/constants";
 import { cn } from "../lib/cn";
 
 /**
@@ -47,6 +59,22 @@ export default function TranscribePage() {
   // Session-only — always starts in light mode, never persisted (see
   // useDarkMode / .clinerules).
   const { isDarkMode, toggleDarkMode } = useDarkMode();
+
+  // "Weak signal" toggle — session-only, always resets to "normal" on
+  // page load, same convention as dark mode/font size (see .clinerules).
+  // Must be chosen BEFORE connecting: it's baked into the Soniox session
+  // config and the AudioWorkletNode at construction time (see
+  // useSonioxTranscription/useAudioCapture), so it's locked once a
+  // session is starting/active and only editable while idle (or after an
+  // error, before retrying).
+  const [audioQualityMode, setAudioQualityMode] = useState<AudioQualityMode>(
+    DEFAULT_AUDIO_QUALITY_MODE,
+  );
+  const canChangeAudioQualityMode = status === "idle" || status === "error";
+
+  const handleStart = () => {
+    void start(audioQualityMode);
+  };
 
   const mainContainerRef = useRef<HTMLElement | null>(null);
   const prevScrollHeightRef = useRef<number>(0);
@@ -122,9 +150,22 @@ export default function TranscribePage() {
             </p>
           )}
 
-          <Pill className="w-full max-w-sm justify-between gap-3 py-2 pl-4 pr-2">
-            <FontSizeControl />
-            <div className="flex items-center gap-2.5">
+          <Pill className="grid w-full max-w-sm grid-cols-3 items-center py-2 pl-4 pr-2">
+            <div className="flex items-center gap-2.5 justify-self-start">
+              <SignalHigh className="size-4 text-slate-400 dark:text-slate-500" />
+              <Switch
+                checked={audioQualityMode === "low_bandwidth"}
+                onCheckedChange={(checked) =>
+                  setAudioQualityMode(checked ? "low_bandwidth" : "normal")
+                }
+                disabled={!canChangeAudioQualityMode}
+                aria-label="Přepnout na režim pro slabý signál (nižší kvalita zvuku, méně dat)"
+                title="Musí se zapnout před spuštěním přepisu"
+              />
+              <SignalLow className="size-4 text-slate-400 dark:text-slate-500" />
+            </div>
+
+            <div className="flex items-center gap-2.5 justify-self-center">
               <Sun className="size-4 text-slate-400 dark:text-slate-500" />
               <Switch
                 checked={isDarkMode}
@@ -132,6 +173,9 @@ export default function TranscribePage() {
                 aria-label="Přepnout tmavý režim"
               />
               <Moon className="size-4 text-slate-400 dark:text-slate-500" />
+            </div>
+            <div className="justify-self-end">
+              <FontSizeControl />
             </div>
           </Pill>
 
@@ -142,7 +186,11 @@ export default function TranscribePage() {
               micLevelDb={micLevelDb}
             />
             <div className="shrink-0">
-              <RecordButton status={status} onStart={start} onStop={stop} />
+              <RecordButton
+                status={status}
+                onStart={handleStart}
+                onStop={stop}
+              />
             </div>
           </Pill>
         </footer>
