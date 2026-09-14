@@ -16,9 +16,11 @@ const BADGE_VARIANTS = [
 
 /**
  * Renders diarized transcript segments as speaker-labeled bubbles. Final
- * text is rendered solid; the still-volatile non-final tail is rendered
- * lighter (see .clinerules section 6). Nothing here persists — it's a pure
- * view over in-memory state.
+ * text is rendered solid (darkest); the still-volatile non-final tail is
+ * rendered in a slightly muted but still highly readable shade — most
+ * reading happens on the live non-final edge, so it must stay legible, not
+ * washed out (see .clinerules section 6). Nothing here persists — it's a
+ * pure view over in-memory state.
  */
 export default function TranscriptView({ transcript }: TranscriptViewProps) {
   if (transcript.segments.length === 0) {
@@ -64,7 +66,7 @@ export default function TranscriptView({ transcript }: TranscriptViewProps) {
                 {segment.finalText}
               </span>
               {segment.nonFinalText && (
-                <span className="text-slate-400 align-middle dark:text-slate-500">
+                <span className="text-slate-600 align-middle dark:text-slate-300">
                   {segment.finalText ? " " : ""}
                   {segment.nonFinalText}
                 </span>
