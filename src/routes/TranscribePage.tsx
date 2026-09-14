@@ -8,6 +8,7 @@ import RecordButton from "../components/RecordButton";
 import TranscriptView from "../components/TranscriptView";
 import SensitivitySlider from "../components/SensitivitySlider";
 import FontSizeControl from "../components/FontSizeControl";
+import Pill from "../components/Pill";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { BarChart2, LogOut, Moon, Sun, TentTree } from "lucide-react";
@@ -75,32 +76,34 @@ export default function TranscribePage() {
   return (
     <div className={cn(isDarkMode && "dark")}>
       <div className="flex h-dvh flex-col overflow-hidden bg-slate-50 dark:bg-slate-950">
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex shrink-0 items-center gap-1.5 text-slate-600 dark:text-slate-300">
-            <TentTree className="size-6" />
-          </div>
+        <header className="flex items-center justify-center p-4">
+          <Pill className="w-full max-w-sm justify-between py-2 pl-4 pr-2">
+            <div className="flex shrink-0 items-center gap-1.5 text-slate-600 dark:text-slate-300">
+              <TentTree className="size-6" />
+            </div>
 
-          <div className="flex shrink-0 items-center gap-3">
-            <Link to="/usage">
+            <div className="flex shrink-0 items-center gap-3">
+              <Link to="/usage">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Historie a statistiky využití"
+                  title="Statistiky využití"
+                >
+                  <BarChart2 className="size-4 text-slate-600 dark:text-slate-300" />
+                </Button>
+              </Link>
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Historie a statistiky využití"
-                title="Statistiky využití"
+                onClick={() => void signOut()}
+                aria-label="Odhlásit se"
+                title="Odhlásit se"
               >
-                <BarChart2 className="size-4 text-slate-600 dark:text-slate-300" />
+                <LogOut className="size-4 text-slate-600 dark:text-slate-300" />
               </Button>
-            </Link>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => void signOut()}
-              aria-label="Odhlásit se"
-              title="Odhlásit se"
-            >
-              <LogOut className="size-4 text-slate-600 dark:text-slate-300" />
-            </Button>
-          </div>
+            </div>
+          </Pill>
         </header>
 
         <main
@@ -119,7 +122,7 @@ export default function TranscribePage() {
             </p>
           )}
 
-          <div className="flex w-full max-w-sm items-center justify-between gap-3 rounded-full bg-white py-2 pl-4 pr-2 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
+          <Pill className="w-full max-w-sm justify-between gap-3 py-2 pl-4 pr-2">
             <FontSizeControl />
             <div className="flex items-center gap-2.5">
               <Sun className="size-4 text-slate-400 dark:text-slate-500" />
@@ -130,9 +133,9 @@ export default function TranscribePage() {
               />
               <Moon className="size-4 text-slate-400 dark:text-slate-500" />
             </div>
-          </div>
+          </Pill>
 
-          <div className="flex w-full max-w-sm items-center gap-4 rounded-full bg-white py-2 pl-4 pr-2 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
+          <Pill className="w-full max-w-sm gap-4 py-2 pl-4 pr-2">
             <SensitivitySlider
               amount={noiseGateAmount}
               onAmountChange={handleNoiseGateAmountChange}
@@ -141,7 +144,7 @@ export default function TranscribePage() {
             <div className="shrink-0">
               <RecordButton status={status} onStart={start} onStop={stop} />
             </div>
-          </div>
+          </Pill>
         </footer>
       </div>
     </div>
