@@ -161,6 +161,13 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
   // Buffers PCM chunks that arrive before the WS is open/configured.
   const pendingChunksRef = useRef<ArrayBuffer[]>([]);
   const isSessionConfiguredRef = useRef(false);
+  // Mirrors `status` for the visibility/pagehide handlers below, so that
+  // effect doesn't need `status` as a dependency (which would otherwise
+  // force it to re-subscribe its DOM listeners on every status change).
+  const statusRef = useRef<TranscriptionStatus>(status);
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
 
   const sendOrBuffer = useCallback((chunk: ArrayBuffer) => {
@@ -282,6 +289,46 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       stopTimeoutRef.current = null;
     }, 300);
   }, [audioCapture, closeSocket, logUsageSession]);
+
+  /**
+   * Auto-stops an active session when the app is backgrounded (tab hidden,
+   * app switched away from, phone locked) or the page is being torn down.
+   *
+   * Without this, backgrounding leaves the Soniox WebSocket open — iOS may
+   * suspend the AudioContext (no more audio sent, see useAudioCapture's own
+   * visibilitychange handling) while our keepalive pings and the WS itself
+   * keep the session alive server-side, silently burning Soniox
+   * credit/session time until the 30-minute `max_session_duration_seconds`
+   * cutoff (see soniox-token Edge Function) — exactly the "phantom long
+   * session" behavior reported in usage stats. Reusing `stop()` (rather
+   * than a bespoke cleanup) keeps this on the same, already-correct code
+   * path: mic released, Soniox "finalize" sent, and `logUsageSession()`
+   * records the real elapsed duration instead of a wall-clock time that
+   * kept ticking while nothing was actually being transcribed.
+   */
+  useEffect(() => {
+    function stopIfActive() {
+      if (statusRef.current === "connecting" || statusRef.current === "recording") {
+        stop();
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "hidden") {
+        stopIfActive();
+      }
+    }
+
+    // `pagehide` fires on actual navigation/tab close/app termination —
+    // covers cases `visibilitychange` may miss (e.g. iOS killing the page
+    // outright rather than just hiding it).
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", stopIfActive);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", stopIfActive);
+    };
+  }, [stop]);
 
 
   const start = useCallback(async (audioQualityMode: AudioQualityMode = DEFAULT_AUDIO_QUALITY_MODE) => {
