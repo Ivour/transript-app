@@ -134,6 +134,9 @@ export function useAudioCapture({
         }
       };
 
+      // Keep sequential: a version running addModule() in parallel with
+      // getUserMedia() left the worklet module request pending forever
+      // (seen in Arc/Chromium on localhost; root cause not pinned down).
       await audioContext.audioWorklet.addModule(PCM_RECORDER_WORKLET_URL);
 
       const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -158,7 +161,12 @@ export function useAudioCapture({
         {
           numberOfInputs: 1,
           numberOfOutputs: 0,
+          // "explicit" makes Web Audio actually downmix to mono (L+R average).
+          // The default "max" mode ignores channelCount, so a stereo source
+          // (e.g. an external wireless mic receiver) would reach the worklet
+          // as 2 channels and only the left one would be used.
           channelCount: 1,
+          channelCountMode: "explicit",
           processorOptions: {
             targetSampleRate: AUDIO_QUALITY_SAMPLE_RATE[audioQualityMode],
             chunkDurationMs: CHUNK_DURATION_MS,

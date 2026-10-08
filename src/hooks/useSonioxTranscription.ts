@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAudioCapture } from "./useAudioCapture";
 import { useAuth } from "./useAuth";
+import { useSonioxKeyPrefetch } from "./useSonioxKeyPrefetch";
 import { supabase } from "../lib/supabase";
 import {
   SONIOX_LANGUAGE_HINTS,
   SONIOX_NUM_CHANNELS,
   SONIOX_SESSION_EXPIRED_ERROR_TYPE,
   SONIOX_WEBSOCKET_URL,
-  fetchSonioxTemporaryKey,
+  SONIOX_ENDPOINT_TOKEN,
   type SonioxSessionConfig,
   type SonioxWebSocketMessage,
   type SonioxToken,
@@ -32,6 +33,16 @@ import type { AudioCaptureError, AudioCaptureStatus } from "../audio/types";
 
 /** Soniox realtime model used for the live session — stt-rt-v5 is the latest production-grade low-latency model. */
 const SONIOX_MODEL = "stt-rt-v5";
+
+/**
+ * Upper bound on how long Soniox waits after speech ends before declaring
+ * an endpoint (and finalizing everything before it). Default is 2000 ms;
+ * lower = non-final text turns final sooner. Kept moderate (not the 500 ms
+ * minimum) so mid-sentence pauses aren't finalized too eagerly, which would
+ * cost accuracy. `endpoint_latency_adjustment_level` is intentionally left
+ * at its default (0) for the same reason.
+ */
+const SONIOX_MAX_ENDPOINT_DELAY_MS = 1000;
 
 /**
  * Caps how many final tokens we keep in memory/rebuild on each message.
@@ -145,6 +156,7 @@ function rebuildTranscriptState(
  */
 export function useSonioxTranscription(): UseSonioxTranscriptionResult {
   const { user } = useAuth();
+  const { takeKey } = useSonioxKeyPrefetch();
   const [status, setStatus] = useState<TranscriptionStatus>("idle");
   const [transcript, setTranscript] = useState<TranscriptState>(
     INITIAL_TRANSCRIPT_STATE,
@@ -347,7 +359,8 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       // audio is lost either way.
       const audioCapturePromise = audioCapture.start(audioQualityMode);
 
-      const { apiKey } = await fetchSonioxTemporaryKey();
+      // Usually resolves instantly — the key was prefetched on page load.
+      const { apiKey } = await takeKey();
 
       const socket = new WebSocket(SONIOX_WEBSOCKET_URL);
       socket.binaryType = "arraybuffer";
@@ -360,9 +373,11 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
           audio_format: AUDIO_QUALITY_FORMAT[audioQualityMode],
           sample_rate: AUDIO_QUALITY_SAMPLE_RATE[audioQualityMode],
           num_channels: SONIOX_NUM_CHANNELS,
-           language_hints: [...SONIOX_LANGUAGE_HINTS],
-           language_hints_strict: true,
-           enable_speaker_diarization: true,
+          language_hints: [...SONIOX_LANGUAGE_HINTS],
+          language_hints_strict: true,
+          enable_speaker_diarization: true,
+          enable_endpoint_detection: true,
+          max_endpoint_delay_ms: SONIOX_MAX_ENDPOINT_DELAY_MS,
         };
         socket.send(JSON.stringify(config));
         isSessionConfiguredRef.current = true;
@@ -409,7 +424,10 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
           return prev;
         });
 
-        const tokens = message.tokens ?? [];
+        // Drop endpoint markers — control tokens, not speech.
+        const tokens = (message.tokens ?? []).filter(
+          (t) => t.text !== SONIOX_ENDPOINT_TOKEN,
+        );
         const newFinalTokens = tokens.filter((t) => t.is_final);
         const nonFinalTokens = tokens.filter((t) => !t.is_final);
 
@@ -451,7 +469,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       setError((err as Error).message);
       setStatus("error");
     }
-  }, [audioCapture, closeSocket, handleUnexpectedTermination]);
+  }, [audioCapture, closeSocket, handleUnexpectedTermination, takeKey]);
 
 
 

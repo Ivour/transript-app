@@ -50,6 +50,8 @@ export interface SonioxSessionConfig {
   language_hints: string[];
   enable_speaker_diarization: boolean;
   language_hints_strict?: boolean;
+  enable_endpoint_detection?: boolean;
+  max_endpoint_delay_ms?: number;
 }
 
 /** A single recognized token as streamed back by Soniox. */
@@ -77,6 +79,12 @@ export interface SonioxWebSocketMessage {
    */
   error_type?: string;
 }
+
+/**
+ * Final token Soniox emits when endpoint detection decides an utterance
+ * ended (`enable_endpoint_detection`). A control marker, not speech.
+ */
+export const SONIOX_ENDPOINT_TOKEN = "<end>";
 
 /** `error_type` sent by Soniox when `max_session_duration_seconds` is hit. */
 export const SONIOX_SESSION_EXPIRED_ERROR_TYPE =

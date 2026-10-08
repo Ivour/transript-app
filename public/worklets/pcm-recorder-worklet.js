@@ -63,40 +63,115 @@ const SILENCE_FLOOR_DB = -100;
 /** How often (ms) the current mic envelope is reported to the main thread for the UI level meter. */
 const LEVEL_REPORT_INTERVAL_MS = 100;
 
-class LinearResampler {
+/**
+ * Anti-aliased streaming resampler (native rate -> target rate).
+ *
+ * Plain linear interpolation (the previous implementation) has no low-pass
+ * stage, so everything between the target Nyquist (8 kHz for 16 kHz output)
+ * and the native Nyquist (24 kHz) folds back into the speech band as
+ * aliasing — exactly where Czech sibilants (s/š/z/ž/c/č) live, and on top of
+ * that it folds broadband ambient noise in too. This runs a windowed-sinc
+ * (Blackman) FIR low-pass at the native rate first, evaluated only at the
+ * output positions, then interpolates between filtered samples. For the
+ * common 48 kHz -> 16 kHz case the ratio is exactly 3, so the fractional
+ * part is always 0 and it's a plain polyphase decimator (one FIR per output
+ * sample). Group delay is (taps - 1) / 2 native samples (~1.5 ms at 48 kHz).
+ *
+ * Tuning (48 kHz -> 16 kHz, 145 taps): flat (-0.2 dB) up to 7 kHz, so the
+ * sibilant band survives intact; -20 dB at 8 kHz; >70 dB rejection from
+ * 8.5 kHz up, so nothing audible aliases back into the speech band. A
+ * shorter filter (49 taps / 0.9 cutoff) already lost -2..-8 dB across
+ * 6.5-7.5 kHz. Cost is ~2.3M multiply-adds/s — negligible.
+ *
+ * All buffers are preallocated — `process()` runs every 128 frames on the
+ * real-time audio thread, where per-block allocations cause GC pauses.
+ */
+const RESAMPLER_CUTOFF_RATIO = 0.95; // fraction of the target Nyquist kept
+const RESAMPLER_TAPS_PER_RATIO = 48; // filter length scales with the ratio
+
+class AntiAliasResampler {
   constructor(sourceSampleRate, targetSampleRate) {
-    this.ratio = sourceSampleRate / targetSampleRate;
-    this.leftover = new Float32Array(0);
-    this.fracPos = 0;
+    this.step = sourceSampleRate / targetSampleRate;
+
+    // Odd length so the kernel is symmetric around a center tap.
+    const taps = Math.ceil(this.step * RESAMPLER_TAPS_PER_RATIO) | 1;
+    // Cutoff in cycles per native sample.
+    const cutoff =
+      (RESAMPLER_CUTOFF_RATIO * (targetSampleRate / 2)) / sourceSampleRate;
+    const kernel = new Float32Array(taps);
+    const center = (taps - 1) / 2;
+    let sum = 0;
+    for (let i = 0; i < taps; i++) {
+      const x = i - center;
+      const sinc =
+        x === 0
+          ? 2 * cutoff
+          : Math.sin(2 * Math.PI * cutoff * x) / (Math.PI * x);
+      const window =
+        0.42 -
+        0.5 * Math.cos((2 * Math.PI * i) / (taps - 1)) +
+        0.08 * Math.cos((4 * Math.PI * i) / (taps - 1));
+      kernel[i] = sinc * window;
+      sum += kernel[i];
+    }
+    for (let i = 0; i < taps; i++) kernel[i] /= sum; // unity DC gain
+    this.kernel = kernel;
+    this.taps = taps;
+
+    // [history (taps samples) | current input block]. Grown on demand if a
+    // browser ever hands us blocks larger than the usual 128 frames.
+    this.history = taps;
+    this.work = new Float32Array(taps + 128);
+    // Next output position, in `work` coordinates. Starts at the last
+    // history sample (zero-filled), so the FIR always has `taps` samples.
+    this.pos = taps - 1;
+    this.output = new Float32Array(Math.ceil(128 / this.step) + 2);
+  }
+
+  /** FIR output centered on `work[index]` (causal: uses index-taps+1..index). */
+  filterAt(index) {
+    const work = this.work;
+    const kernel = this.kernel;
+    let acc = 0;
+    for (let k = 0, j = index; k < this.taps; k++, j--) {
+      acc += kernel[k] * work[j];
+    }
+    return acc;
   }
 
   /**
-   * Resamples one input block. Carries fractional position + leftover
-   * source samples across calls so output stays continuous across the
-   * AudioWorklet's fixed 128-frame `process()` blocks.
+   * Resamples one input block. Returns a view into an internal buffer,
+   * valid only until the next call.
    */
   process(input) {
-    const combined = new Float32Array(this.leftover.length + input.length);
-    combined.set(this.leftover, 0);
-    combined.set(input, this.leftover.length);
+    const history = this.history;
+    const length = history + input.length;
+    if (this.work.length < length) {
+      const grown = new Float32Array(length);
+      grown.set(this.work.subarray(0, history));
+      this.work = grown;
+      this.output = new Float32Array(Math.ceil(input.length / this.step) + 2);
+    }
+    const work = this.work;
+    work.set(input, history);
 
-    const output = [];
-    let pos = this.fracPos;
-
-    while (Math.floor(pos) + 1 < combined.length) {
+    const output = this.output;
+    let count = 0;
+    let pos = this.pos;
+    while (Math.floor(pos) + 1 < length) {
       const i0 = Math.floor(pos);
       const frac = pos - i0;
-      const a = combined[i0];
-      const b = combined[i0 + 1];
-      output.push(a + (b - a) * frac);
-      pos += this.ratio;
+      const y0 = this.filterAt(i0);
+      output[count++] = frac === 0 ? y0 : y0 + (this.filterAt(i0 + 1) - y0) * frac;
+      pos += this.step;
     }
 
-    const leftoverStart = Math.min(Math.floor(pos), combined.length);
-    this.leftover = combined.slice(leftoverStart);
-    this.fracPos = pos - leftoverStart;
+    // Keep the last `history` samples for the next block's FIR window.
+    const shift = length - history;
+    work.copyWithin(0, shift, length);
+    this.pos = pos - shift;
 
-    return Float32Array.from(output);
+    return output.subarray(0, count);
   }
 }
 
@@ -200,7 +275,7 @@ class PcmRecorderProcessor extends AudioWorkletProcessor {
 
     // `sampleRate` is a global provided by AudioWorkletGlobalScope — the
     // AudioContext's actual native rate (fixed by the browser/OS).
-    this.resampler = new LinearResampler(sampleRate, targetSampleRate);
+    this.resampler = new AntiAliasResampler(sampleRate, targetSampleRate);
     this.chunkSize = Math.round((targetSampleRate * chunkDurationMs) / 1000);
     this.buffer = new Float32Array(this.chunkSize);
     this.bufferLength = 0;
@@ -211,6 +286,8 @@ class PcmRecorderProcessor extends AudioWorkletProcessor {
     this.gateOpen = true;
     this.levelReportAccumMs = 0;
     this.sampleDurationMs = (1 / sampleRate) * 1000;
+    // Preallocated gate output (grown on demand) — no per-block allocation.
+    this.gatedBuffer = new Float32Array(128);
   }
 
   /**
@@ -266,7 +343,10 @@ class PcmRecorderProcessor extends AudioWorkletProcessor {
     // avoiding audible clicks at block boundaries.
     const perSampleAlpha = oneEuroAlpha(gainTau, this.sampleDurationMs);
 
-    const output = new Float32Array(input.length);
+    if (this.gatedBuffer.length < input.length) {
+      this.gatedBuffer = new Float32Array(input.length);
+    }
+    const output = this.gatedBuffer.subarray(0, input.length);
     let gain = this.gateGain;
     for (let i = 0; i < input.length; i++) {
       gain += (targetGain - gain) * perSampleAlpha;

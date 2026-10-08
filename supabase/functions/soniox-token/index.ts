@@ -18,11 +18,13 @@ const SONIOX_TEMPORARY_KEY_URL =
   "https://api.soniox.com/v1/auth/temporary-api-key";
 
 /**
- * How long the minted temporary key stays valid, in seconds. Kept short on
- * purpose — the frontend re-requests a new key via this same function when
- * needed (long sessions), so this does not limit overall session length.
+ * How long the minted temporary key stays valid, in seconds. The frontend
+ * prefetches a key while the page is open and refreshes it shortly before
+ * expiry (see `useSonioxKeyPrefetch`) — 5 minutes keeps that refresh rare
+ * while still limiting how long a leaked key would be usable. Does not
+ * limit session length (that's `MAX_SESSION_DURATION_SECONDS` below).
  */
-const TEMPORARY_KEY_TTL_SECONDS = 60;
+const TEMPORARY_KEY_TTL_SECONDS = 300;
 
 /**
  * Hard safety cap on a single transcription session's duration, in seconds.
