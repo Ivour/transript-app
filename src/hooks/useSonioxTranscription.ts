@@ -35,14 +35,32 @@ import type { AudioCaptureError, AudioCaptureStatus } from "../audio/types";
 const SONIOX_MODEL = "stt-rt-v5";
 
 /**
- * Upper bound on how long Soniox waits after speech ends before declaring
- * an endpoint (and finalizing everything before it). Default is 2000 ms;
- * lower = non-final text turns final sooner. Kept moderate (not the 500 ms
- * minimum) so mid-sentence pauses aren't finalized too eagerly, which would
- * cost accuracy. `endpoint_latency_adjustment_level` is intentionally left
- * at its default (0) for the same reason.
+ * Endpoint detection makes non-final text turn final sooner, but Soniox
+ * documents that forcing early finalization reduces diarization accuracy —
+ * an endpoint fired mid-sentence can get the rest of the sentence labeled
+ * as another speaker. So it is tuned conservatively below (endpoints
+ * rarer and later, to make mid-sentence endpoints unlikely). If a sentence still
+ * gets split across speakers, lower `SONIOX_ENDPOINT_SENSITIVITY` further or
+ * set this to false (best diarization, slowest finals).
  */
-const SONIOX_MAX_ENDPOINT_DELAY_MS = 1000;
+const SONIOX_ENABLE_ENDPOINT_DETECTION = true;
+
+/**
+ * Upper bound on how long Soniox waits after speech ends before declaring
+ * an endpoint. 2000 ms is the Soniox default: the model gets time to judge
+ * whether the speaker really finished, instead of treating a breath or a
+ * comma pause as the end. Lower values (min 500) finalize sooner but cut
+ * sentences short.
+ */
+const SONIOX_MAX_ENDPOINT_DELAY_MS = 2000;
+
+/**
+ * -1..1, default 0. Negative = endpoints less likely, which suits speech
+ * with natural mid-sentence pauses. Only valid while
+ * `endpoint_latency_adjustment_level` stays 0 (left unset on purpose —
+ * raising it trades accuracy for latency).
+ */
+const SONIOX_ENDPOINT_SENSITIVITY = -0.5;
 
 /**
  * Caps how many final tokens we keep in memory/rebuild on each message.
@@ -376,8 +394,13 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
           language_hints: [...SONIOX_LANGUAGE_HINTS],
           language_hints_strict: true,
           enable_speaker_diarization: true,
-          enable_endpoint_detection: true,
-          max_endpoint_delay_ms: SONIOX_MAX_ENDPOINT_DELAY_MS,
+          ...(SONIOX_ENABLE_ENDPOINT_DETECTION
+            ? {
+                enable_endpoint_detection: true,
+                max_endpoint_delay_ms: SONIOX_MAX_ENDPOINT_DELAY_MS,
+                endpoint_sensitivity: SONIOX_ENDPOINT_SENSITIVITY,
+              }
+            : {}),
         };
         socket.send(JSON.stringify(config));
         isSessionConfiguredRef.current = true;

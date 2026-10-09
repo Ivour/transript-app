@@ -16,6 +16,7 @@
   },
   "onCreateCommand": "corepack enable",
   "postCreateCommand": "pnpm install",
+  "postStartCommand": "pnpm run dev --host",
   "customizations": {
     "vscode": {
       "extensions": [

@@ -52,6 +52,7 @@ export interface SonioxSessionConfig {
   language_hints_strict?: boolean;
   enable_endpoint_detection?: boolean;
   max_endpoint_delay_ms?: number;
+  endpoint_sensitivity?: number;
 }
 
 /** A single recognized token as streamed back by Soniox. */
