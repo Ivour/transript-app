@@ -27,6 +27,8 @@ import {
 } from "../audio/constants";
 import { cn } from "../lib/cn";
 
+const isTest = import.meta.env.VITE_APP_ENV === "test";
+
 /**
  * Main screen: live diarized transcription. Composes
  * `useSonioxTranscription` (audio capture + Soniox WS + transcript state)
@@ -105,12 +107,15 @@ export default function TranscribePage() {
     <div className={cn(isDarkMode && "dark")}>
       <div className="flex h-dvh flex-col overflow-hidden bg-slate-50 dark:bg-slate-950">
         <header className="flex items-center justify-center p-4">
-          <Pill className="w-full max-w-sm justify-between py-2 pl-4 pr-2 ">
+          <Pill
+            className={cn(
+              "w-full max-w-sm justify-between py-2 pl-4 pr-2",
+              isTest && "border border-red-500",
+            )}
+          >
             <div className="flex shrink-0 items-center gap-1.5 text-slate-600 dark:text-slate-300">
               <TentTree className="size-6" />
             </div>
-
-              <span>Test env</span>
 
             <div className="flex shrink-0 items-center gap-3">
               <Link to="/usage">
@@ -181,7 +186,12 @@ export default function TranscribePage() {
             </div>
           </Pill>
 
-          <Pill className="w-full max-w-sm gap-4 py-2 pl-4 pr-2">
+          <Pill
+            className={cn(
+              "w-full max-w-sm gap-4 py-2 pl-4 pr-2",
+              isTest && "border border-red-500",
+            )}
+          >
             <SensitivitySlider
               amount={noiseGateAmount}
               onAmountChange={handleNoiseGateAmountChange}
