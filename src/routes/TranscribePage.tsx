@@ -105,10 +105,12 @@ export default function TranscribePage() {
     <div className={cn(isDarkMode && "dark")}>
       <div className="flex h-dvh flex-col overflow-hidden bg-slate-50 dark:bg-slate-950">
         <header className="flex items-center justify-center p-4">
-          <Pill className="w-full max-w-sm justify-between py-2 pl-4 pr-2">
+          <Pill className="w-full max-w-sm justify-between py-2 pl-4 pr-2 ">
             <div className="flex shrink-0 items-center gap-1.5 text-slate-600 dark:text-slate-300">
               <TentTree className="size-6" />
             </div>
+
+              <span>Test env</span>
 
             <div className="flex shrink-0 items-center gap-3">
               <Link to="/usage">
