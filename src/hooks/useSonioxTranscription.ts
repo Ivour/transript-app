@@ -183,6 +183,11 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
   // Buffers PCM chunks that arrive before the WS is open/configured.
   const pendingChunksRef = useRef<ArrayBuffer[]>([]);
   const isSessionConfiguredRef = useRef(false);
+  // Bumped by every `start()` and `stop()`. A `start()` that is still awaiting
+  // (key fetch) compares its own id afterwards and bails out if a Stop or a
+  // newer Start happened meanwhile — otherwise it would open a socket nobody
+  // owns anymore, and Soniox bills a stream for as long as it stays open.
+  const sessionIdRef = useRef(0);
   // Mirrors `status` for the visibility/pagehide handlers below, so that
   // effect doesn't need `status` as a dependency (which would otherwise
   // force it to re-subscribe its DOM listeners on every status change).
@@ -295,6 +300,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
   );
 
   const stop = useCallback(() => {
+    sessionIdRef.current++;
     setStatus((prev) => (prev === "idle" ? prev : "stopping"));
     audioCapture.stop();
 
@@ -366,6 +372,17 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
     audioQualityMode: AudioQualityMode = DEFAULT_AUDIO_QUALITY_MODE,
     tuning: TuningSettings = DEFAULT_TUNING,
   ) => {
+    const sessionId = ++sessionIdRef.current;
+
+    // Tapping Start right after Stop: the previous Stop's 300 ms timer would
+    // otherwise close the socket opened below. Also drop any leftover socket
+    // (e.g. one from a previous failed start) so two never exist at once.
+    if (stopTimeoutRef.current) {
+      clearTimeout(stopTimeoutRef.current);
+      stopTimeoutRef.current = null;
+    }
+    closeSocket();
+
     setError(null);
     setTranscript(INITIAL_TRANSCRIPT_STATE);
     finalTokensRef.current = [];
@@ -395,6 +412,10 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
 
       // Usually resolves instantly — the key was prefetched on page load.
       const { apiKey } = await takeKey();
+
+      // Stop (or a newer Start) happened while the key was being fetched:
+      // don't open a socket for a session that no longer exists.
+      if (sessionIdRef.current !== sessionId) return;
 
       const socket = new WebSocket(SONIOX_WEBSOCKET_URL);
       socket.binaryType = "arraybuffer";
@@ -508,7 +529,16 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       };
 
 
-      await audioCapturePromise;
+      const micRunning = await audioCapturePromise;
+
+      // Mic denied/failed: no audio will ever come, but the socket opened in
+      // parallel is already a billed stream (kept alive by pings for up to
+      // 30 min). Close it. The mic error itself is shown via `audioError`.
+      // Skipped if Stop/a newer Start took over, they own the socket now.
+      if (!micRunning && sessionIdRef.current === sessionId) {
+        closeSocket();
+        setStatus("error");
+      }
     } catch (err) {
       closeSocket();
       audioCapture.stop();

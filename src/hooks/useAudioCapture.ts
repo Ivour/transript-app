@@ -46,11 +46,16 @@ interface UseAudioCaptureResult {
    * pcm_mulaw for weak-signal networks — see AUDIO_QUALITY_* in
    * ../audio/constants.ts). Baked into the AudioWorkletNode at
    * construction — cannot change mid-recording, unlike the noise gate.
+   *
+   * Never rejects: mic errors are reported via `error`/`status`. Resolves
+   * `true` when the mic is running, `false` when it failed (e.g. permission
+   * denied) — the caller needs this to close the Soniox socket it opened in
+   * parallel, which is billed for as long as it stays open.
    */
   start: (
     audioQualityMode?: AudioQualityMode,
     tuning?: TuningSettings,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   stop: () => void;
   /**
    * Live-updates the noise gate sensitivity (0 = bypassed/off, 1 =
@@ -126,7 +131,7 @@ export function useAudioCapture({
   const start = useCallback(async (
     audioQualityMode: AudioQualityMode = DEFAULT_AUDIO_QUALITY_MODE,
     tuning: TuningSettings = DEFAULT_TUNING,
-  ) => {
+  ): Promise<boolean> => {
     setError(null);
     setStatus("starting");
 
@@ -215,7 +220,7 @@ export function useAudioCapture({
       sourceNode.connect(workletNode);
 
       setStatus("recording");
-
+      return true;
     } catch (err) {
       teardown();
       const domError = err as DOMException;
@@ -226,6 +231,7 @@ export function useAudioCapture({
           domError.name === "PermissionDeniedError",
       });
       setStatus("error");
+      return false;
     }
   }, [teardown]);
 

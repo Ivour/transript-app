@@ -47,6 +47,19 @@ Uživatel je React vývojář (medior), **audio a zpracování signálu nezná**
 - **16 kHz mono `pcm_s16le` stačí.** Nezvyšovat vzorkování ani bitrate,
   spotřeba dat je už teď dost vysoká. Režim slabého signálu = 8 kHz μ-law.
 - **Žádný auto-reconnect.** Při pádu spojení se session ukončí chybou.
+- **EU server Sonioxu se neřeší.** Přínos nejde ověřit (US i EU hostitel jsou
+  za Cloudflare, měří se jen cesta k hraně) a latence je hlavně doba
+  rozpoznávání. Neotevírat znovu bez nového důvodu.
+- **Detekce konce promluvy zůstává vypnutá** a ruční/periodický `finalize` se
+  nepřidává (zhoršují diarizaci, s kterou je uživatel spokojený).
+- **Dohrání konce poslední věty při Stopu se neřeší** (čekání na `finished`).
+  Důležité je jen správné zavření session (kredit Sonioxu).
+- **Statistiky `usage_sessions` se nemění**, i když se počítají od první zprávy
+  Sonioxu a Soniox účtuje od odeslání konfigurace (čekání na „Povolit“ se
+  ztrácí). `cost_usd` je jen odhad.
+- **Buffer `pendingChunksRef` zůstává.** Na iPhonu bývá prázdný, ale chrání
+  začátek věty, když je mikrofon rychlejší než spojení (desktopový Chromium,
+  pomalé spojení, klíč bez prefetche).
 - **Nastavení UI se neukládá** (tmavý režim, velikost písma, citlivost,
   režim signálu) — po refreshi se vše vrací na výchozí. Nepřidávat
   localStorage.
@@ -117,9 +130,11 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
 - **`addModule` a `getUserMedia` musí běžet za sebou.** Souběžně spuštěný
   `addModule` zůstal v Arcu navždy „pending“ (příčina nezjištěna).
 - **`useAudioCapture.start` chyby mikrofonu polyká** (nastaví jen `error` a
-  `status`, nevyhazuje), takže `useSonioxTranscription.start` o nich neví a
-  otevřený WebSocket po zamítnutém/selhaném mikrofonu zůstane viset. Známá
-  chyba, oprava je na seznamu v `VYLEPSENI.md` (bod 10).
+  `status`, nevyhazuje) a vrací `Promise<boolean>` (`true` = mikrofon běží).
+  `useSonioxTranscription.start` podle toho po selhání mikrofonu zavře
+  WebSocket, který se otevírá souběžně (Soniox účtuje celý otevřený stream).
+  Chybu mikrofonu ukazuje UI z `audioError`. Změna je v kódu, **neověřená na
+  zařízení** (viz `VYLEPSENI.md`, bod 10).
 - Worklet je **čisté JS v `public/`** (Vite ho vydává beze změny) a nemůže
   importovat ze `src/`. Konstanty noise gate v něm zrcadlí
   `src/audio/constants.ts` — při ladění udržuj obě místa shodná.
@@ -130,6 +145,7 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
   interpolaci — bez filtru se šum a zvuk nad 8 kHz překládá do pásma řeči a
   kazí sykavky (s, š, z, č).
 - Chunk **60 ms** (`CHUNK_DURATION_MS`). Menší = méně latence, víc režie.
+  Měření 20 / 60 / 100 ms nic nezlepšilo, zůstává 60 ms.
 - Worklet node má `channelCountMode: "explicit"`, aby se stereo vstup (např.
   přijímač Rode) smíchal do mono místo čtení jen levého kanálu.
 - Noise gate (slider „citlivost“) běží před resamplingem a zeslabuje audio
@@ -143,8 +159,11 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
 - **Testovací panel** (`TuningPanel`, `lib/tuning.ts`, jen když
   `VITE_APP_ENV=test`): přepínače pro detekci konce promluvy, ozvěnu, šum,
   automatickou hlasitost a velikost chunku, plus diagnostika (vzorkování
-  mikrofonu, surové ID mluvčího ze Sonioxu). Hodnoty se čtou při Startu,
-  neukládají se. Výchozí hodnoty ostrého buildu jsou `DEFAULT_TUNING`.
+  mikrofonu, surové ID mluvčího ze Sonioxu) a měření latence (slovo → text,
+  slovo → finál, záseky, `lib/latencyStats.ts`; čísla zůstanou po Stopu na
+  obrazovce). Hodnoty se čtou při Startu, neukládají se; mezi měřeními se
+  proto nic neobnovuje, stačí Stop, přepnout a znovu Start. Výchozí hodnoty
+  ostrého buildu jsou `DEFAULT_TUNING`.
 - Wake Lock se drží během přepisu (`useWakeLock`).
 
 ## Soniox session
@@ -160,6 +179,10 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
   podobnosti hlasů se nastavit nedá. Token `<end>` se filtruje. `endpoint_sensitivity` a
   `endpoint_latency_adjustment_level` umí jen v5; záporná citlivost se
   nedoporučuje, když je úroveň > 0 (nastavení se pak vzájemně ruší).
+  Změřeno (2026-10): zapnutá detekce nezrychlila ani první text (611 vs
+  610 ms), ani „zčernání“ souvislé řeči jednoho mluvčího (4,7 s v obou
+  případech). Soniox větu uzavře až při pauze nebo střídání mluvčích; v
+  monologu bez pauz se detekce neprojeví.
 - **Parametry Sonioxu před změnou ověř v dokumentaci**
   (`https://soniox.com/docs/stt/api-reference/websocket-api`); některé
   parametry jsou jen pro v5 a jiné modely je mohou odmítnout chybou 400.
@@ -167,8 +190,55 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
   je souvislý běh tokenů stejného mluvčího. Jeden špatně označený token tedy
   rozdělí bublinu.
 - Stop (`stop()`) pošle `finalize` a po 300 ms zavře socket bez čekání na
-  `finished`. Může se tím ztratit konec poslední věty. Uživatel to zatím
-  neřeší.
+  `finished`. Může se tím ztratit konec poslední věty. **Uživatel to
+  neřeší** (na posledních větách nezáleží), důležité je jen, aby se session
+  vždy správně zavřela.
+- **Soniox účtuje celou dobu otevřeného streamu, ne jen zpracovaný zvuk**
+  (dokumentace, stránka o keepalive), včetně prostojů s keepalive. Otevřený
+  WebSocket bez mikrofonu tedy stojí kredit (~0,12 $/h, strop 30 min z
+  `MAX_SESSION_DURATION_SECONDS`). Proto je důležité zavřít socket při selhání
+  mikrofonu, při Stopu před dokončením startu a při novém Startu
+  (`sessionIdRef` a zrušení časovače ve `start`/`stop`, hotovo, neověřeno na
+  zařízení).
+- **Klíč se posílá jen v úvodní zprávě (`api_key`), což Soniox od 15. 1. 2027
+  odmítne.** V prohlížeči musí klíč jít přes seznam protokolů WebSocketu:
+  `new WebSocket(url, ["soniox-api-key", klíč])`, `api_key` se pak z úvodní
+  zprávy vynechá. **Odloženo uživatelem, ale termín platí** (viz „Otevřené
+  úkoly“). Funguje jen s dočasnými klíči ve formátu `snx_temp_…` (starší
+  `temp:` formát jen v hlavičce `Authorization`, kterou prohlížeč nenastaví).
+
+## Otevřené úkoly (stav k 2026-10-10)
+
+Podrobnosti, zdůvodnění a výsledky měření jsou ve `VYLEPSENI.md`.
+
+1. **Klíč Sonioxu do protokolu WebSocketu** — nutné před **15. 1. 2027**
+   (`VYLEPSENI.md`, bod 8). Uživatel to zatím odložil, připomeň to při práci na
+   spojení se Sonioxem.
+2. **Zkouška zavírání WebSocketu na iPhonu** (hotovo v kódu, neověřeno). Co
+   zkusit: Start → Nepovolit (žádný otevřený stream), Stop hned po Startu,
+   Stop a ihned Start. Zbývá známá drobnost: Stop uprostřed promptu může po
+   povolení ukázat zbytečnou chybu mikrofonu.
+3. **Měření v hluku / s Rode** (situace E) a podle přepisu rozhodnout o
+   potlačení šumu, ozvěny a automatické hlasitosti (`VYLEPSENI.md`, bod 7).
+4. Návrh commitu pro uživatele: `fix: close Soniox socket when mic fails or
+   Stop beats Start`.
+
+## Naměřená latence (test build, 2026-10)
+
+Wi‑Fi, klidná místnost, čtení textu, výchozí nastavení. Podrobnosti a celá
+tabulka jsou ve `VYLEPSENI.md`.
+
+- **První text: ~610 ms (p90 ~670 ms), „zčernání“ ~4,7 s (p90 ~5,1 s), záseky
+  0.** 5G data jsou o ~70 ms pomalejší. Dlouhá session se nezhoršuje.
+- Odhad složení 610 ms: naše aplikace ~50–70 ms, síť ~100–200 ms, zbytek
+  (~350–450 ms) rozpoznávání u Sonioxu. Aplikace do latence přidává málo,
+  **v audio pipeline ani v Reactu není co zrychlit**. Rozhodovat podle
+  dalších čísel z panelu, ne podle dojmu.
+- Velikost chunku nic nezlepšila (20 ms a 100 ms vyšlo o 60–70 ms *hůř* než
+  60 ms, nejspíš šum měření) → nechat 60 ms.
+- Čísla v panelu: „Soniox zaostává“ je podezřele nízké (nestavět na něm);
+  „slovo → finál“ potřebuje víc měření (v některých bězích je `n` pod 10).
+- Chybí měření v hluku a s Rode (situace E).
 
 ## Konvence
 

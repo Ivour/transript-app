@@ -29,7 +29,7 @@ import {
 import { cn } from "../lib/cn";
 import { DEFAULT_TUNING, type TuningSettings } from "../lib/tuning";
 
-const isTest = true/* import.meta.env.VITE_APP_ENV === "test"; */
+const isTest =  import.meta.env.VITE_APP_ENV === "test"; 
 
 /**
  * Main screen: live diarized transcription. Composes
