@@ -9,6 +9,7 @@ import {
   ENDPOINT_DELAY_MIN_MS,
   type TuningSettings,
 } from "../lib/tuning";
+import type { LatencySnapshot, LatencySummary } from "../lib/latencyStats";
 
 interface TuningPanelProps {
   tuning: TuningSettings;
@@ -17,6 +18,21 @@ interface TuningPanelProps {
   locked: boolean;
   /** Native mic sample rate (Hz) while recording, for diagnostics. */
   nativeSampleRate: number | null;
+  /** Measured delays of the current/last session, see `lib/latencyStats.ts`. */
+  latency: LatencySnapshot | null;
+}
+
+/** 380 -> "380 ms", 2400 -> "2,4 s". */
+function formatMs(ms: number) {
+  return ms < 1000
+    ? `${Math.round(ms)} ms`
+    : `${(ms / 1000).toFixed(1).replace(".", ",")} s`;
+}
+
+function formatSummary(summary: LatencySummary | null) {
+  return summary
+    ? `${formatMs(summary.median)} (p90 ${formatMs(summary.p90)}, n ${summary.count})`
+    : "–";
 }
 
 function Row({
@@ -97,6 +113,7 @@ export default function TuningPanel({
   onChange,
   locked,
   nativeSampleRate,
+  latency,
 }: TuningPanelProps) {
   const [open, setOpen] = useState(false);
   const update = (patch: Partial<TuningSettings>) =>
@@ -133,6 +150,22 @@ export default function TuningPanel({
       <p className="text-[10px] leading-snug text-slate-500 dark:text-slate-400">
         {summary}
       </p>
+      {latency && (
+        <div className="flex flex-col gap-0.5 text-[10px] leading-snug tabular-nums text-slate-600 dark:text-slate-300">
+          <span>slovo → text {formatSummary(latency.wordToTextMs)}</span>
+          <span>slovo → finál {formatSummary(latency.wordToFinalMs)}</span>
+          <span>
+            Soniox zaostává{" "}
+            {latency.serverLagMs !== null ? formatMs(latency.serverLagMs) : "–"}
+            {" · "}spojení{" "}
+            {latency.connectMs !== null ? formatMs(latency.connectMs) : "–"}
+          </span>
+          <span>
+            záseky {latency.stalls} (nejdelší mezera{" "}
+            {formatMs(latency.maxChunkGapMs)})
+          </span>
+        </div>
+      )}
 
       {open && (
         <div className="flex max-h-[45dvh] flex-col gap-3.5 overflow-y-auto border-t border-slate-200 pt-3 dark:border-slate-700">
@@ -252,6 +285,15 @@ export default function TuningPanel({
             přímo ze Sonioxu. Pokud dva lidé mají stejné id, sloučil je Soniox,
             ne aplikace. Vzorkování mikrofonu (v souhrnu nahoře) je rychlost, jakou
             iPhone mikrofon čte; vestavěný mívá 48 kHz.
+          </p>
+          <p className="text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+            Zpoždění (nahoře, medián z posledních 40 měření; p90 = tak špatné
+            je každé desáté): „slovo → text“ je čas od vyslovení slova po jeho
+            první zobrazení, „slovo → finál“ po zčernání. „Soniox zaostává“ je
+            kolik zvuku ještě nezpracoval (velké číslo = problém sítě, ne
+            modelu). „Záseky“ jsou chvíle, kdy se zvuk z mikrofonu zdržel v
+            aplikaci. „Spojení“ je čas od tapu na Start po navázání spojení.
+            Čísla zůstávají po Stopu.
           </p>
         </div>
       )}

@@ -53,6 +53,12 @@ Uživatel je React vývojář (medior), **audio a zpracování signálu nezná**
 - **Přepisy se nikam neukládají.** Jediná DB tabulka je `usage_sessions`.
 - **Auto-stop při odchodu do pozadí** (`visibilitychange`, `pagehide`) chrání
   kredit před zapomenutou session.
+- **Safari se nenastavuje na „vždy povolit“ mikrofon.** Uživatel ho povoluje
+  ručně v promptu po každém tapu na Start. Důsledky: WebSocket (otevírá se
+  souběžně s mikrofonem) je obvykle otevřený dřív, než přijde první zvuk, takže
+  `pendingChunksRef` bývá prázdný; předotevírat spojení před tapem nemá smysl;
+  doba do prvního textu závisí i na tom, jak rychle uživatel klepne na
+  „Povolit“ (do měření ve `TuningPanel` se nezapočítává).
 
 ## Příkazy
 
@@ -110,6 +116,10 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
   `start()` hned, bez asynchronní předkontroly.
 - **`addModule` a `getUserMedia` musí běžet za sebou.** Souběžně spuštěný
   `addModule` zůstal v Arcu navždy „pending“ (příčina nezjištěna).
+- **`useAudioCapture.start` chyby mikrofonu polyká** (nastaví jen `error` a
+  `status`, nevyhazuje), takže `useSonioxTranscription.start` o nich neví a
+  otevřený WebSocket po zamítnutém/selhaném mikrofonu zůstane viset. Známá
+  chyba, oprava je na seznamu v `VYLEPSENI.md` (bod 10).
 - Worklet je **čisté JS v `public/`** (Vite ho vydává beze změny) a nemůže
   importovat ze `src/`. Konstanty noise gate v něm zrcadlí
   `src/audio/constants.ts` — při ladění udržuj obě místa shodná.

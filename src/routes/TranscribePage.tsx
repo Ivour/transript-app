@@ -44,6 +44,7 @@ export default function TranscribePage() {
     error,
     audioError,
     nativeSampleRate,
+    latency,
     start,
     stop,
     micLevelDb,
@@ -148,7 +149,7 @@ export default function TranscribePage() {
           className={cn(
             "flex-1 overflow-y-auto p-4",
             // The test build's tuning panel makes the fixed footer taller.
-            isTest ? "pb-72" : "pb-48",
+            isTest ? "pb-80" : "pb-48",
           )}
         >
           <TranscriptView transcript={transcript} showSpeakerId={isTest} />
@@ -198,6 +199,7 @@ export default function TranscribePage() {
               onChange={setTuning}
               locked={!canChangeAudioQualityMode}
               nativeSampleRate={nativeSampleRate}
+              latency={latency}
             />
           )}
 

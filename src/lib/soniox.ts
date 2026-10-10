@@ -69,6 +69,8 @@ export interface SonioxToken {
 export interface SonioxWebSocketMessage {
   tokens?: SonioxToken[];
   finished?: boolean;
+  /** Audio (ms of the stream) already turned into tokens, final or not. Diagnostics only. */
+  total_audio_proc_ms?: number;
   error_code?: number;
   error_message?: string;
   /**

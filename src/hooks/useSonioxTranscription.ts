@@ -29,6 +29,10 @@ import {
   type AudioQualityMode,
 } from "../audio/constants";
 import { DEFAULT_TUNING, type TuningSettings } from "../lib/tuning";
+import {
+  SessionLatencyTracker,
+  type LatencySnapshot,
+} from "../lib/latencyStats";
 import type { AudioCaptureError, AudioCaptureStatus } from "../audio/types";
 
 
@@ -61,6 +65,11 @@ interface UseSonioxTranscriptionResult {
   audioError: AudioCaptureError | null;
   /** Native mic sample rate (Hz) while recording — diagnostics only. */
   nativeSampleRate: number | null;
+  /**
+   * Latency measured during the current/last session (refreshed ~1x/s, kept
+   * after Stop so it can be read) — diagnostics for the test build only.
+   */
+  latency: LatencySnapshot | null;
   /**
    * `audioQualityMode` ("normal" by default, or "low_bandwidth" for weak
    * signal networks — see AUDIO_QUALITY_* in ../audio/constants.ts) is
@@ -159,7 +168,12 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
   );
   const [error, setError] = useState<string | null>(null);
   const [micLevelDb, setMicLevelDb] = useState(NOISE_GATE_LEVEL_METER_MIN_DB);
+  const [latency, setLatency] = useState<LatencySnapshot | null>(null);
 
+  // Refs, not state: updated on every chunk/message, published to `latency`
+  // only once a second so measuring doesn't cause extra renders.
+  const latencyTrackerRef = useRef<SessionLatencyTracker | null>(null);
+  const latencyIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const finalTokensRef = useRef<SonioxToken[]>([]);
@@ -179,6 +193,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
 
 
   const sendOrBuffer = useCallback((chunk: ArrayBuffer) => {
+    latencyTrackerRef.current?.onChunk(performance.now());
     const socket = socketRef.current;
     if (socket && socket.readyState === WebSocket.OPEN && isSessionConfiguredRef.current) {
       socket.send(chunk);
@@ -197,6 +212,14 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
     if (keepAliveIntervalRef.current) {
       clearInterval(keepAliveIntervalRef.current);
       keepAliveIntervalRef.current = null;
+    }
+    if (latencyIntervalRef.current) {
+      clearInterval(latencyIntervalRef.current);
+      latencyIntervalRef.current = null;
+    }
+    // Last reading stays on screen after Stop (until the next Start).
+    if (latencyTrackerRef.current) {
+      setLatency(latencyTrackerRef.current.snapshot());
     }
     const socket = socketRef.current;
     if (socket) {
@@ -348,6 +371,18 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
     finalTokensRef.current = [];
     setStatus("connecting");
 
+    // Fresh measurement per session; the clock starts at the tap.
+    const latencyTracker = new SessionLatencyTracker(
+      tuning.chunkMs,
+      performance.now(),
+    );
+    latencyTrackerRef.current = latencyTracker;
+    setLatency(null);
+    if (latencyIntervalRef.current) clearInterval(latencyIntervalRef.current);
+    latencyIntervalRef.current = setInterval(() => {
+      setLatency(latencyTracker.snapshot());
+    }, 1000);
+
     try {
       // Kick off mic capture and the Soniox temporary-key fetch in
       // parallel — starting the mic as early as possible (right after the
@@ -384,6 +419,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
             : {}),
         };
         socket.send(JSON.stringify(config));
+        latencyTracker.onConfigSent(performance.now());
         isSessionConfiguredRef.current = true;
 
         for (const chunk of pendingChunksRef.current) {
@@ -403,6 +439,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       };
 
       socket.onmessage = (event: MessageEvent<string>) => {
+        const receivedAt = performance.now();
         let message: SonioxWebSocketMessage;
         try {
           message = JSON.parse(event.data);
@@ -431,6 +468,11 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
         // Drop endpoint markers — control tokens, not speech.
         const tokens = (message.tokens ?? []).filter(
           (t) => t.text !== SONIOX_ENDPOINT_TOKEN,
+        );
+        latencyTracker.onMessage(
+          receivedAt,
+          tokens,
+          message.total_audio_proc_ms,
         );
         const newFinalTokens = tokens.filter((t) => t.is_final);
         const nonFinalTokens = tokens.filter((t) => !t.is_final);
@@ -495,6 +537,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
     error,
     audioError: audioCapture.error,
     nativeSampleRate: audioCapture.nativeSampleRate,
+    latency,
     start,
     stop,
     micLevelDb,
