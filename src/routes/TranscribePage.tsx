@@ -9,6 +9,7 @@ import TranscriptView from "../components/TranscriptView";
 import SensitivitySlider from "../components/SensitivitySlider";
 import FontSizeControl from "../components/FontSizeControl";
 import Pill from "../components/Pill";
+import TuningPanel from "../components/TuningPanel";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -26,8 +27,9 @@ import {
   type AudioQualityMode,
 } from "../audio/constants";
 import { cn } from "../lib/cn";
+import { DEFAULT_TUNING, type TuningSettings } from "../lib/tuning";
 
-const isTest = import.meta.env.VITE_APP_ENV === "test";
+const isTest = true/* import.meta.env.VITE_APP_ENV === "test"; */
 
 /**
  * Main screen: live diarized transcription. Composes
@@ -75,8 +77,12 @@ export default function TranscribePage() {
   );
   const canChangeAudioQualityMode = status === "idle" || status === "error";
 
+  // Test-build tuning panel values (session-only, never persisted). Prod
+  // always starts with DEFAULT_TUNING. Read synchronously in the tap handler.
+  const [tuning, setTuning] = useState<TuningSettings>(DEFAULT_TUNING);
+
   const handleStart = () => {
-    void start(audioQualityMode);
+    void start(audioQualityMode, isTest ? tuning : DEFAULT_TUNING);
   };
 
   const mainContainerRef = useRef<HTMLElement | null>(null);
@@ -139,9 +145,13 @@ export default function TranscribePage() {
 
         <main
           ref={mainContainerRef}
-          className="flex-1 overflow-y-auto p-4 pb-48"
+          className={cn(
+            "flex-1 overflow-y-auto p-4",
+            // The test build's tuning panel makes the fixed footer taller.
+            isTest ? "pb-72" : "pb-48",
+          )}
         >
-          <TranscriptView transcript={transcript} />
+          <TranscriptView transcript={transcript} showSpeakerId={isTest} />
         </main>
 
         <footer className="fixed inset-x-0 bottom-0 flex flex-col items-center gap-2 bg-gradient-to-t from-slate-50 via-slate-50 to-transparent p-6 dark:from-slate-950 dark:via-slate-950">
@@ -182,10 +192,13 @@ export default function TranscribePage() {
             </div>
           </Pill>
 
-          {isTest && nativeSampleRate !== null && (
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Vzorkování mikrofonu: {nativeSampleRate / 1000} kHz
-            </p>
+          {isTest && (
+            <TuningPanel
+              tuning={tuning}
+              onChange={setTuning}
+              locked={!canChangeAudioQualityMode}
+              nativeSampleRate={nativeSampleRate}
+            />
           )}
 
           <Pill

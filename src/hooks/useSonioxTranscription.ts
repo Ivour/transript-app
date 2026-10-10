@@ -28,41 +28,12 @@ import {
   NOISE_GATE_LEVEL_METER_MIN_DB,
   type AudioQualityMode,
 } from "../audio/constants";
+import { DEFAULT_TUNING, type TuningSettings } from "../lib/tuning";
 import type { AudioCaptureError, AudioCaptureStatus } from "../audio/types";
 
 
 /** Soniox realtime model used for the live session — stt-rt-v5 is the latest production-grade low-latency model. */
 const SONIOX_MODEL = "stt-rt-v5";
-
-/**
- * Endpoint detection makes non-final text turn final sooner, but Soniox
- * documents that forcing early finalization reduces diarization accuracy —
- * an endpoint fired mid-sentence can get the rest of the sentence labeled
- * as another speaker. So it is tuned conservatively below (endpoints
- * rarer and later, to make mid-sentence endpoints unlikely). Even so, the
- * same person kept getting a new speaker label from one sentence to the next
- * (each endpoint finalizes a sentence with little audio context), so it is
- * OFF now: best diarization, slower finals. Set to true to get faster
- * "blackening" of text back (the constants below then apply again).
- */
-const SONIOX_ENABLE_ENDPOINT_DETECTION = false;
-
-/**
- * Upper bound on how long Soniox waits after speech ends before declaring
- * an endpoint. 2000 ms is the Soniox default: the model gets time to judge
- * whether the speaker really finished, instead of treating a breath or a
- * comma pause as the end. Lower values (min 500) finalize sooner but cut
- * sentences short.
- */
-const SONIOX_MAX_ENDPOINT_DELAY_MS = 2000;
-
-/**
- * -1..1, default 0. Negative = endpoints less likely, which suits speech
- * with natural mid-sentence pauses. Only valid while
- * `endpoint_latency_adjustment_level` stays 0 (left unset on purpose —
- * raising it trades accuracy for latency).
- */
-const SONIOX_ENDPOINT_SENSITIVITY = -0.5;
 
 /**
  * Caps how many final tokens we keep in memory/rebuild on each message.
@@ -96,7 +67,10 @@ interface UseSonioxTranscriptionResult {
    * baked into both the AudioWorklet's output encoding AND the Soniox
    * session config sent once at WS open — cannot be switched mid-session.
    */
-  start: (audioQualityMode?: AudioQualityMode) => Promise<void>;
+  start: (
+    audioQualityMode?: AudioQualityMode,
+    tuning?: TuningSettings,
+  ) => Promise<void>;
   stop: () => void;
   /** Current live mic input level (dBFS), for the sensitivity slider's level meter. */
   micLevelDb: number;
@@ -365,7 +339,10 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
   }, [stop]);
 
 
-  const start = useCallback(async (audioQualityMode: AudioQualityMode = DEFAULT_AUDIO_QUALITY_MODE) => {
+  const start = useCallback(async (
+    audioQualityMode: AudioQualityMode = DEFAULT_AUDIO_QUALITY_MODE,
+    tuning: TuningSettings = DEFAULT_TUNING,
+  ) => {
     setError(null);
     setTranscript(INITIAL_TRANSCRIPT_STATE);
     finalTokensRef.current = [];
@@ -379,7 +356,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       // WebSocket is open/configured are safely buffered in
       // `pendingChunksRef` and flushed once the session is ready, so no
       // audio is lost either way.
-      const audioCapturePromise = audioCapture.start(audioQualityMode);
+      const audioCapturePromise = audioCapture.start(audioQualityMode, tuning);
 
       // Usually resolves instantly — the key was prefetched on page load.
       const { apiKey } = await takeKey();
@@ -398,11 +375,11 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
           language_hints: [...SONIOX_LANGUAGE_HINTS],
           language_hints_strict: true,
           enable_speaker_diarization: true,
-          ...(SONIOX_ENABLE_ENDPOINT_DETECTION
+          ...(tuning.endpointDetection
             ? {
                 enable_endpoint_detection: true,
-                max_endpoint_delay_ms: SONIOX_MAX_ENDPOINT_DELAY_MS,
-                endpoint_sensitivity: SONIOX_ENDPOINT_SENSITIVITY,
+                max_endpoint_delay_ms: tuning.endpointDelayMs,
+                endpoint_sensitivity: tuning.endpointSensitivity,
               }
             : {}),
         };

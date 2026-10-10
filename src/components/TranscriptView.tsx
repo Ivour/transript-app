@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 
 interface TranscriptViewProps {
   transcript: TranscriptState;
+  /** Test build only: show Soniox's raw speaker id next to the label. */
+  showSpeakerId?: boolean;
 }
 
 const BADGE_VARIANTS = [
@@ -22,7 +24,10 @@ const BADGE_VARIANTS = [
  * washed out (see .clinerules section 6). Nothing here persists — it's a
  * pure view over in-memory state.
  */
-export default function TranscriptView({ transcript }: TranscriptViewProps) {
+export default function TranscriptView({
+  transcript,
+  showSpeakerId = false,
+}: TranscriptViewProps) {
   if (transcript.segments.length === 0) {
     return (
       <p className="text-center text-slate-400 dark:text-slate-500">
@@ -61,6 +66,11 @@ export default function TranscriptView({ transcript }: TranscriptViewProps) {
                 >
                   {speaker.label}
                 </Badge>
+              )}
+              {showSpeakerId && segment.speakerId && (
+                <span className="mr-2 select-none align-middle text-[10px] text-slate-400">
+                  id {segment.speakerId}
+                </span>
               )}
               <span className="text-slate-900 align-middle dark:text-slate-100">
                 {segment.finalText}

@@ -2,17 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AUDIO_QUALITY_FORMAT,
   AUDIO_QUALITY_SAMPLE_RATE,
-  CHUNK_DURATION_MS,
   DEFAULT_AUDIO_QUALITY_MODE,
   DEFAULT_NOISE_GATE_AMOUNT,
-  MIC_ECHO_CANCELLATION,
-  MIC_NOISE_SUPPRESSION,
   NOISE_GATE_PARAM_NAME,
   PCM_RECORDER_PROCESSOR_NAME,
   PCM_RECORDER_WORKLET_URL,
   type AudioQualityMode,
 } from "../audio/constants";
 import type { AudioCaptureError, AudioCaptureStatus } from "../audio/types";
+import { DEFAULT_TUNING, type TuningSettings } from "../lib/tuning";
 
 interface UseAudioCaptureOptions {
   /**
@@ -49,7 +47,10 @@ interface UseAudioCaptureResult {
    * ../audio/constants.ts). Baked into the AudioWorkletNode at
    * construction — cannot change mid-recording, unlike the noise gate.
    */
-  start: (audioQualityMode?: AudioQualityMode) => Promise<void>;
+  start: (
+    audioQualityMode?: AudioQualityMode,
+    tuning?: TuningSettings,
+  ) => Promise<void>;
   stop: () => void;
   /**
    * Live-updates the noise gate sensitivity (0 = bypassed/off, 1 =
@@ -122,7 +123,10 @@ export function useAudioCapture({
     setNativeSampleRate(null);
   }, [teardown]);
 
-  const start = useCallback(async (audioQualityMode: AudioQualityMode = DEFAULT_AUDIO_QUALITY_MODE) => {
+  const start = useCallback(async (
+    audioQualityMode: AudioQualityMode = DEFAULT_AUDIO_QUALITY_MODE,
+    tuning: TuningSettings = DEFAULT_TUNING,
+  ) => {
     setError(null);
     setStatus("starting");
 
@@ -153,8 +157,12 @@ export function useAudioCapture({
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
-          echoCancellation: MIC_ECHO_CANCELLATION,
-          noiseSuppression: MIC_NOISE_SUPPRESSION,
+          echoCancellation: tuning.echoCancellation,
+          noiseSuppression: tuning.noiseSuppression,
+          // null = leave the browser default (usually on).
+          ...(tuning.autoGainControl !== null && {
+            autoGainControl: tuning.autoGainControl,
+          }),
         },
       });
       mediaStreamRef.current = mediaStream;
@@ -180,7 +188,7 @@ export function useAudioCapture({
           channelCountMode: "explicit",
           processorOptions: {
             targetSampleRate: AUDIO_QUALITY_SAMPLE_RATE[audioQualityMode],
-            chunkDurationMs: CHUNK_DURATION_MS,
+            chunkDurationMs: tuning.chunkMs,
             audioFormat: AUDIO_QUALITY_FORMAT[audioQualityMode],
           },
         },
