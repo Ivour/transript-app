@@ -133,8 +133,9 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
   `status`, nevyhazuje) a vrací `Promise<boolean>` (`true` = mikrofon běží).
   `useSonioxTranscription.start` podle toho po selhání mikrofonu zavře
   WebSocket, který se otevírá souběžně (Soniox účtuje celý otevřený stream).
-  Chybu mikrofonu ukazuje UI z `audioError`. Změna je v kódu, **neověřená na
-  zařízení** (viz `VYLEPSENI.md`, bod 10).
+  Chybu mikrofonu ukazuje UI z `audioError`. Ověřeno na iPhonu 2026-10-10
+  (viz `VYLEPSENI.md`, bod 10); zavření socketu samo uživatel přímo
+  nepozoroval, vyplývá z kódu a z chování aplikace.
 - Worklet je **čisté JS v `public/`** (Vite ho vydává beze změny) a nemůže
   importovat ze `src/`. Konstanty noise gate v něm zrcadlí
   `src/audio/constants.ts` — při ladění udržuj obě místa shodná.
@@ -198,8 +199,8 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
   WebSocket bez mikrofonu tedy stojí kredit (~0,12 $/h, strop 30 min z
   `MAX_SESSION_DURATION_SECONDS`). Proto je důležité zavřít socket při selhání
   mikrofonu, při Stopu před dokončením startu a při novém Startu
-  (`sessionIdRef` a zrušení časovače ve `start`/`stop`, hotovo, neověřeno na
-  zařízení).
+  (`sessionIdRef` a zrušení časovače ve `start`/`stop`, hotovo, na iPhonu
+  odzkoušeno 2026-10-10).
 - **Klíč se posílá jen v úvodní zprávě (`api_key`), což Soniox od 15. 1. 2027
   odmítne.** V prohlížeči musí klíč jít přes seznam protokolů WebSocketu:
   `new WebSocket(url, ["soniox-api-key", klíč])`, `api_key` se pak z úvodní
@@ -214,12 +215,11 @@ Podrobnosti, zdůvodnění a výsledky měření jsou ve `VYLEPSENI.md`.
 1. **Klíč Sonioxu do protokolu WebSocketu** — nutné před **15. 1. 2027**
    (`VYLEPSENI.md`, bod 8). Uživatel to zatím odložil, připomeň to při práci na
    spojení se Sonioxem.
-2. **Zkouška zavírání WebSocketu na iPhonu** (hotovo v kódu, neověřeno). Co
-   zkusit: Start → Nepovolit (žádný otevřený stream), Stop hned po Startu,
-   Stop a ihned Start. Zbývá známá drobnost: Stop uprostřed promptu může po
-   povolení ukázat zbytečnou chybu mikrofonu.
-3. **Měření v hluku / s Rode** (situace E) a podle přepisu rozhodnout o
+2. **Měření v hluku / s Rode** (situace E) a podle přepisu rozhodnout o
    potlačení šumu, ozvěny a automatické hlasitosti (`VYLEPSENI.md`, bod 7).
+3. Zavírání WebSocketu je odzkoušené na iPhonu (Nepovolit, Stop hned po
+   Startu, Stop a ihned Start; 2026-10-10). Zbývá známá drobnost: Stop
+   uprostřed promptu může po povolení ukázat zbytečnou chybu mikrofonu.
 4. Návrh commitu pro uživatele: `fix: close Soniox socket when mic fails or
    Stop beats Start`.
 

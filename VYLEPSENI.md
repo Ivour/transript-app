@@ -8,7 +8,7 @@ nápadů. Parametry Sonioxu před změnou ověř v dokumentaci.
 
 | Co | Stav |
 |---|---|
-| Zavírání WebSocketu při selhání mikrofonu / Stopu před startem / Stop → Start | **Hotovo v kódu, čeká na zkoušku na iPhonu** (bod 10) |
+| Zavírání WebSocketu při selhání mikrofonu / Stopu před startem / Stop → Start | **Hotovo a odzkoušeno na iPhonu 2026-10-10** (bod 10) |
 | Klíč Sonioxu do protokolu WebSocketu | **Odloženo uživatelem, ale nutné před 15. 1. 2027** (bod 8) |
 | Měření v hluku / s Rode (situace E) a A/B potlačení šumu, ozvěny, AGC | **Chybí** (bod 7) |
 | Latence (první text 610 ms, zčernání 4,7 s) | Změřeno, v aplikaci není co zrychlit |
@@ -92,7 +92,7 @@ do češtiny. V klidné místnosti se rozdíl neprojeví.
 - *Bod 12, indikátor špatného spojení:* `socket.bufferedAmount` ukáže, že data
   uvázla; případně doporučit režim slabého signálu.
 
-## Hotovo: bod 10, zavírání WebSocketu (čeká na zkoušku)
+## Hotovo: bod 10, zavírání WebSocketu (odzkoušeno 2026-10-10)
 
 Soniox účtuje **celou dobu otevřeného streamu**, ne jen zpracovaný zvuk
 (dokumentace, stránka o keepalive; ~0,12 $/h). WebSocket se otevírá souběžně s
@@ -108,7 +108,12 @@ Co se změnilo:
   by 300ms časovač z předchozího Stopu zavřel nově otevřený socket) a zavře
   starý socket. `stop()` je beze změny. Bez auto-reconnectu.
 
-**Zkouška na iPhonu:** (1) Start → v promptu Nepovolit → chyba mikrofonu a žádný
+**Výsledek zkoušky (2026-10-10):** všechny čtyři případy níže dopadly dobře
+(při Nepovolit se ukáže chyba mikrofonu). Zavřený socket uživatel přímo
+nepozoroval (ani DevTools, ani Soniox Console), vyplývá z kódu a z chování
+aplikace.
+
+**Postup zkoušky na iPhonu:** (1) Start → v promptu Nepovolit → chyba mikrofonu a žádný
 otevřený stream (Soniox Console nebo DevTools, Network → WS), 2× po sobě; (2)
 Start → Povolit → věta → Stop se chová jako dřív; (3) Stop hned po Startu bez
 textu → žádný zbylý stream; (4) Stop a ihned Start → nová session běží a
