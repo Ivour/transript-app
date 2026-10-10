@@ -41,6 +41,16 @@ export interface TuningSettings {
   chunkMs: number;
 }
 
+/**
+ * Production defaults (2026-10), chosen for the priorities in CLAUDE.md:
+ * low latency first, then transcript/diarization accuracy, then battery/data.
+ * - chunk 60 ms: data volume is the same for any chunk size (only a small
+ *   per-message overhead differs), so bigger chunks save little battery but
+ *   add delay; smaller ones cost battery for a gain nobody can perceive.
+ * - endpoint detection off: Soniox documents it as lowering diarization
+ *   accuracy; the price is slower "blackening" of text.
+ * - echo/noise processing off, AGC left to the browser: see MIC_* constants.
+ */
 export const DEFAULT_TUNING: TuningSettings = {
   endpointDetection: false,
   endpointDelayMs: 2000,

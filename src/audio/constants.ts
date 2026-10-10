@@ -58,13 +58,16 @@ export const AUDIO_QUALITY_FORMAT: Record<AudioQualityMode, "pcm_s16le" | "pcm_m
 export const CHUNK_DURATION_MS = 60;
 
 /**
- * A/B switch for the browser's built-in voice processing in getUserMedia.
- * On iOS these enable "voice processing" (noise suppression + echo canceller
- * tuned for phone calls), which flattens the fine voice characteristics
- * (timbre, pitch detail) that diarization relies on. Symptom it would
- * explain: two similar voices (e.g. two women) merged into one speaker.
- * Turned OFF (2026-10) to test that; set back to true if background noise
- * ruins the transcript. Trade-off: more background noise reaches Soniox.
+ * Default for the browser's built-in voice processing in getUserMedia: OFF.
+ * - Echo cancellation: the app plays nothing back, so there is no echo to
+ *   remove; on iOS it switches the mic into "voice processing" mode tuned
+ *   for phone calls, which changes the voice's timbre.
+ * - Noise suppression: Soniox is trained on noisy speech, while the phone's
+ *   suppressor adds artifacts and mutes quieter voices. Both hurt the fine
+ *   voice characteristics diarization relies on (two similar voices were
+ *   merged into one speaker).
+ * Not verified in a loud venue or with a Rode mic: the test build's tuning
+ * panel (`TuningPanel`, `lib/tuning.ts`) can turn them on for comparison.
  */
 export const MIC_ECHO_CANCELLATION = false;
 export const MIC_NOISE_SUPPRESSION = false;

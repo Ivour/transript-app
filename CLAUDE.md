@@ -125,21 +125,29 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
 - Noise gate (slider „citlivost“) běží před resamplingem a zeslabuje audio
   k nule; může useknout začátky slov, takže nezvyšovat agresivitu bez
   konzultace.
-- `getUserMedia` má zapnuté `echoCancellation` a `noiseSuppression`. Je to
-  otevřená otázka — na iOS to znamená voice processing, který může zhoršovat
-  hlasy a diarizaci. Zvlášť u Rode stojí za test s vypnutím. Neověřeno.
+- `getUserMedia` má `echoCancellation` a `noiseSuppression` **vypnuté**
+  (`MIC_*` v `audio/constants.ts`): na iOS zapínají voice processing, který
+  mění zabarvení hlasu a zhoršuje diarizaci (dvě podobné ženy se slily).
+  Neověřeno v hlučném prostředí a s Rode — k porovnání slouží testovací
+  panel (viz níže).
+- **Testovací panel** (`TuningPanel`, `lib/tuning.ts`, jen když
+  `VITE_APP_ENV=test`): přepínače pro detekci konce promluvy, ozvěnu, šum,
+  automatickou hlasitost a velikost chunku, plus diagnostika (vzorkování
+  mikrofonu, surové ID mluvčího ze Sonioxu). Hodnoty se čtou při Startu,
+  neukládají se. Výchozí hodnoty ostrého buildu jsou `DEFAULT_TUNING`.
 - Wake Lock se drží během přepisu (`useWakeLock`).
 
 ## Soniox session
 
 - Model `stt-rt-v5`, `language_hints: ["cs"]` striktně,
   `enable_speaker_diarization`.
-- **Detekce konce promluvy** (`SONIOX_ENABLE_ENDPOINT_DETECTION` a konstanty
-  vedle ní v `useSonioxTranscription.ts`) zrychluje „zčernání“ textu, ale
-  podle dokumentace snižuje přesnost diarizace: věta pak může skončit u
-  dvou mluvčích. Je to trade-off latence a diarizace; aktuálně konzervativní
-  ladění (`max_endpoint_delay_ms` 2000, `endpoint_sensitivity` −0,5), uživatel
-  ho zkouší. Token `<end>` se filtruje. `endpoint_sensitivity` a
+- **Detekce konce promluvy** (`endpointDetection` v `DEFAULT_TUNING`,
+  `lib/tuning.ts`) zrychluje „zčernání“ textu, ale podle dokumentace snižuje
+  přesnost diarizace: stejný člověk dostával v další větě nového mluvčího.
+  Je **vypnutá**; zapnutí je trade-off latence a diarizace (při zapnutí se
+  použije `max_endpoint_delay_ms` 2000, `endpoint_sensitivity` −0,5).
+  Ostatní Soniox parametry diarizace nemá, počet mluvčích ani práh
+  podobnosti hlasů se nastavit nedá. Token `<end>` se filtruje. `endpoint_sensitivity` a
   `endpoint_latency_adjustment_level` umí jen v5; záporná citlivost se
   nedoporučuje, když je úroveň > 0 (nastavení se pak vzájemně ruší).
 - **Parametry Sonioxu před změnou ověř v dokumentaci**
@@ -189,7 +197,6 @@ Nejsou to rozhodnutí, jen podklad pro další ladění.
 - Vyhlazení diarizace v UI: krátký úsek jiného mluvčího mezi dvěma úseky
   stejného mluvčího přilepit k okolí (riziko: ztratí se krátké „jo“ od
   druhého člověka).
-- Zkusit vypnout `echoCancellation` a `noiseSuppression`, hlavně s Rode.
 - Zlepšit režim slabého signálu: Opus místo μ-law (nutno ověřit podporu
   `AudioEncoder` v Safari a přijetí Sonioxem).
 - WebSocket přesunout z hlavního vlákna do Web Workeru (nižší jitter při
