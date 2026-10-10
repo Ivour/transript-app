@@ -88,6 +88,8 @@ interface UseSonioxTranscriptionResult {
   transcript: TranscriptState;
   error: string | null;
   audioError: AudioCaptureError | null;
+  /** Native mic sample rate (Hz) while recording — diagnostics only. */
+  nativeSampleRate: number | null;
   /**
    * `audioQualityMode` ("normal" by default, or "low_bandwidth" for weak
    * signal networks — see AUDIO_QUALITY_* in ../audio/constants.ts) is
@@ -515,6 +517,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
     transcript,
     error,
     audioError: audioCapture.error,
+    nativeSampleRate: audioCapture.nativeSampleRate,
     start,
     stop,
     micLevelDb,

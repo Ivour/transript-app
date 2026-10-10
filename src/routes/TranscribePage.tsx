@@ -41,6 +41,7 @@ export default function TranscribePage() {
     transcript,
     error,
     audioError,
+    nativeSampleRate,
     start,
     stop,
     micLevelDb,
@@ -180,6 +181,12 @@ export default function TranscribePage() {
               <FontSizeControl />
             </div>
           </Pill>
+
+          {isTest && nativeSampleRate !== null && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Vzorkování mikrofonu: {nativeSampleRate / 1000} kHz
+            </p>
+          )}
 
           <Pill
             className={cn(

@@ -33,6 +33,12 @@ interface UseAudioCaptureResult {
   status: AudioCaptureStatus;
   error: AudioCaptureError | null;
   /**
+   * Native sample rate (Hz) the browser runs the AudioContext at (not the
+   * 16 kHz we send). Diagnostics only — shown in the test build, since a
+   * PWA on iPhone has no console. `null` while not recording.
+   */
+  nativeSampleRate: number | null;
+  /**
    * Starts mic capture. MUST be invoked synchronously from a user gesture
    * (e.g. a button's onClick) — iOS Safari refuses to start/resume an
    * AudioContext otherwise (see .clinerules section 5).
@@ -71,6 +77,7 @@ export function useAudioCapture({
 }: UseAudioCaptureOptions): UseAudioCaptureResult {
   const [status, setStatus] = useState<AudioCaptureStatus>("idle");
   const [error, setError] = useState<AudioCaptureError | null>(null);
+  const [nativeSampleRate, setNativeSampleRate] = useState<number | null>(null);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -112,6 +119,7 @@ export function useAudioCapture({
   const stop = useCallback(() => {
     teardown();
     setStatus("idle");
+    setNativeSampleRate(null);
   }, [teardown]);
 
   const start = useCallback(async (audioQualityMode: AudioQualityMode = DEFAULT_AUDIO_QUALITY_MODE) => {
@@ -127,6 +135,7 @@ export function useAudioCapture({
       // the audio content itself (safe for diarization accuracy).
       const audioContext = new AudioContext({ latencyHint: "interactive" });
       audioContextRef.current = audioContext;
+      setNativeSampleRate(audioContext.sampleRate);
 
       audioContext.onstatechange = () => {
         if (audioContext.state === "suspended") {
@@ -250,6 +259,6 @@ export function useAudioCapture({
     };
   }, [teardown]);
 
-  return { status, error, start, stop, setNoiseGateAmount };
+  return { status, error, nativeSampleRate, start, stop, setNoiseGateAmount };
 }
 
