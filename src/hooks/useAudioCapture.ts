@@ -5,6 +5,8 @@ import {
   CHUNK_DURATION_MS,
   DEFAULT_AUDIO_QUALITY_MODE,
   DEFAULT_NOISE_GATE_AMOUNT,
+  MIC_ECHO_CANCELLATION,
+  MIC_NOISE_SUPPRESSION,
   NOISE_GATE_PARAM_NAME,
   PCM_RECORDER_PROCESSOR_NAME,
   PCM_RECORDER_WORKLET_URL,
@@ -142,8 +144,8 @@ export function useAudioCapture({
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
+          echoCancellation: MIC_ECHO_CANCELLATION,
+          noiseSuppression: MIC_NOISE_SUPPRESSION,
         },
       });
       mediaStreamRef.current = mediaStream;

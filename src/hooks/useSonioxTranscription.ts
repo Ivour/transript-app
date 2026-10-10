@@ -39,11 +39,13 @@ const SONIOX_MODEL = "stt-rt-v5";
  * documents that forcing early finalization reduces diarization accuracy —
  * an endpoint fired mid-sentence can get the rest of the sentence labeled
  * as another speaker. So it is tuned conservatively below (endpoints
- * rarer and later, to make mid-sentence endpoints unlikely). If a sentence still
- * gets split across speakers, lower `SONIOX_ENDPOINT_SENSITIVITY` further or
- * set this to false (best diarization, slowest finals).
+ * rarer and later, to make mid-sentence endpoints unlikely). Even so, the
+ * same person kept getting a new speaker label from one sentence to the next
+ * (each endpoint finalizes a sentence with little audio context), so it is
+ * OFF now: best diarization, slower finals. Set to true to get faster
+ * "blackening" of text back (the constants below then apply again).
  */
-const SONIOX_ENABLE_ENDPOINT_DETECTION = true;
+const SONIOX_ENABLE_ENDPOINT_DETECTION = false;
 
 /**
  * Upper bound on how long Soniox waits after speech ends before declaring
