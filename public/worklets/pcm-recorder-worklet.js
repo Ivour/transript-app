@@ -72,7 +72,8 @@ const LEVEL_REPORT_INTERVAL_MS = 100;
  * aliasing — exactly where Czech sibilants (s/š/z/ž/c/č) live, and on top of
  * that it folds broadband ambient noise in too. This runs a windowed-sinc
  * (Blackman) FIR low-pass at the native rate first, evaluated only at the
- * output positions, then interpolates between filtered samples. For the
+ * output positions (for non-integer ratios with a kernel precomputed for the
+ * exact fractional offset, see RESAMPLER_PHASES). For the
  * common 48 kHz -> 16 kHz case the ratio is exactly 3, so the fractional
  * part is always 0 and it's a plain polyphase decimator (one FIR per output
  * sample). Group delay is (taps - 1) / 2 native samples (~1.5 ms at 48 kHz).
@@ -88,6 +89,13 @@ const LEVEL_REPORT_INTERVAL_MS = 100;
  */
 const RESAMPLER_CUTOFF_RATIO = 0.95; // fraction of the target Nyquist kept
 const RESAMPLER_TAPS_PER_RATIO = 48; // filter length scales with the ratio
+// Non-integer ratios (44.1 kHz -> 16 kHz, 24 kHz -> 16 kHz) need the filter
+// evaluated BETWEEN native samples. Instead of linearly interpolating two
+// filtered samples (that re-introduces distortion: only ~-62 dB at 1 kHz and
+// ~-28 dB at 7 kHz for 44.1 kHz), the kernel is precomputed for this many
+// fractional offsets and the two nearest ones are blended. Integer ratios
+// (48 kHz -> 16 kHz) always land on offset 0 and are unaffected.
+const RESAMPLER_PHASES = 256;
 
 class AntiAliasResampler {
   constructor(sourceSampleRate, targetSampleRate) {
@@ -98,24 +106,35 @@ class AntiAliasResampler {
     // Cutoff in cycles per native sample.
     const cutoff =
       (RESAMPLER_CUTOFF_RATIO * (targetSampleRate / 2)) / sourceSampleRate;
-    const kernel = new Float32Array(taps);
     const center = (taps - 1) / 2;
-    let sum = 0;
-    for (let i = 0; i < taps; i++) {
-      const x = i - center;
-      const sinc =
-        x === 0
-          ? 2 * cutoff
-          : Math.sin(2 * Math.PI * cutoff * x) / (Math.PI * x);
-      const window =
-        0.42 -
-        0.5 * Math.cos((2 * Math.PI * i) / (taps - 1)) +
-        0.08 * Math.cos((4 * Math.PI * i) / (taps - 1));
-      kernel[i] = sinc * window;
-      sum += kernel[i];
+    // Kernel for fractional offset p / RESAMPLER_PHASES, stored flat at
+    // table[p * taps ...]. Offset f shifts the sampling point of the same
+    // windowed sinc by f native samples; phase 0 is the plain symmetric
+    // kernel. Each phase is normalized to unity DC gain.
+    const phases = Number.isInteger(this.step) ? 1 : RESAMPLER_PHASES + 1;
+    const table = new Float32Array(phases * taps);
+    for (let p = 0; p < phases; p++) {
+      const frac = p / RESAMPLER_PHASES;
+      let sum = 0;
+      for (let i = 0; i < taps; i++) {
+        const x = i + frac - center;
+        const sinc =
+          x === 0
+            ? 2 * cutoff
+            : Math.sin(2 * Math.PI * cutoff * x) / (Math.PI * x);
+        const u = i + frac; // position inside the window (may pass the end)
+        const window =
+          u > taps - 1
+            ? 0
+            : 0.42 -
+              0.5 * Math.cos((2 * Math.PI * u) / (taps - 1)) +
+              0.08 * Math.cos((4 * Math.PI * u) / (taps - 1));
+        table[p * taps + i] = sinc * window;
+        sum += table[p * taps + i];
+      }
+      for (let i = 0; i < taps; i++) table[p * taps + i] /= sum;
     }
-    for (let i = 0; i < taps; i++) kernel[i] /= sum; // unity DC gain
-    this.kernel = kernel;
+    this.table = table;
     this.taps = taps;
 
     // [history (taps samples) | current input block]. Grown on demand if a
@@ -131,12 +150,33 @@ class AntiAliasResampler {
   /** FIR output centered on `work[index]` (causal: uses index-taps+1..index). */
   filterAt(index) {
     const work = this.work;
-    const kernel = this.kernel;
+    const table = this.table;
     let acc = 0;
     for (let k = 0, j = index; k < this.taps; k++, j--) {
-      acc += kernel[k] * work[j];
+      acc += table[k] * work[j];
     }
     return acc;
+  }
+
+  /**
+   * FIR output at `work[index] + p/PHASES + q/PHASES` native samples:
+   * kernels of phases `p` and `p + 1` are applied in one pass and blended
+   * by `q` (0..1). Same cost as the old two-sample linear interpolation.
+   */
+  filterBetween(index, phase, q) {
+    const work = this.work;
+    const table = this.table;
+    const taps = this.taps;
+    const a = phase * taps;
+    const b = a + taps;
+    let accA = 0;
+    let accB = 0;
+    for (let k = 0, j = index; k < taps; k++, j--) {
+      const sample = work[j];
+      accA += table[a + k] * sample;
+      accB += table[b + k] * sample;
+    }
+    return accA + (accB - accA) * q;
   }
 
   /**
@@ -161,8 +201,13 @@ class AntiAliasResampler {
     while (Math.floor(pos) + 1 < length) {
       const i0 = Math.floor(pos);
       const frac = pos - i0;
-      const y0 = this.filterAt(i0);
-      output[count++] = frac === 0 ? y0 : y0 + (this.filterAt(i0 + 1) - y0) * frac;
+      if (frac === 0) {
+        output[count++] = this.filterAt(i0);
+      } else {
+        const scaled = frac * RESAMPLER_PHASES;
+        const phase = Math.floor(scaled);
+        output[count++] = this.filterBetween(i0, phase, scaled - phase);
+      }
       pos += this.step;
     }
 

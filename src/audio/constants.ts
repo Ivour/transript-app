@@ -59,15 +59,15 @@ export const CHUNK_DURATION_MS = 60;
 
 /**
  * A/B switch for the browser's built-in voice processing in getUserMedia.
- * On iOS these enable "voice processing" (aggressive noise suppression + echo
- * canceller tuned for phone calls), which can alter the voice's timbre
- * between sentences. Diarization tells speakers apart by exactly that timbre,
- * so the same person can come out as two speakers. Left on (unchanged
- * behavior) until tested; set both to false to test diarization without it.
- * Trade-off: more background noise reaches Soniox.
+ * On iOS these enable "voice processing" (noise suppression + echo canceller
+ * tuned for phone calls), which flattens the fine voice characteristics
+ * (timbre, pitch detail) that diarization relies on. Symptom it would
+ * explain: two similar voices (e.g. two women) merged into one speaker.
+ * Turned OFF (2026-10) to test that; set back to true if background noise
+ * ruins the transcript. Trade-off: more background noise reaches Soniox.
  */
-export const MIC_ECHO_CANCELLATION = true;
-export const MIC_NOISE_SUPPRESSION = true;
+export const MIC_ECHO_CANCELLATION = false;
+export const MIC_NOISE_SUPPRESSION = false;
 
 /** Path (served from `public/`) to the AudioWorklet module. */
 export const PCM_RECORDER_WORKLET_URL = "/worklets/pcm-recorder-worklet.js";
