@@ -250,6 +250,17 @@ tabulka jsou ve `VYLEPSENI.md`.
   s vedlejšími efekty patří do hooků, komponenty držet „hloupé“.
 - Tailwind 4 (bez `tailwind.config`, konfigurace v `src/index.css`), shadcn
   `base-nova` nad `@base-ui/react`, ikony `lucide-react`.
+- **Design livelife** (`livelife-design/` = podklad a mockupy). V kódu:
+  `src/styles/tokens.css` (barvy podle motivu), `shadcn.css` (mapování),
+  `theme.css` (`@theme` statické hodnoty + `@theme inline` barvy). Barvy jen přes tokeny (`bg-canvas`,
+  `text-ink`, `border-spk1-border`…), žádné `slate-*`. Motiv řídí
+  `data-theme` na `<html>` (výchozí tmavý, `useTheme`), varianta `dark:`
+  na něj reaguje. Sklo (utilita `glass`) jen na hlavičce a docku; režim slabého
+  signálu (`data-signal="low"`) ho mění na plné pozadí. Vědomé odchylky od
+  `IMPLEMENT.md`: bez localStorage, bez „Ve frontě“ (appka nemá frontu
+  textu), bez blikajícího kurzoru, nefinální text `ink-partial` (výraznější
+  než `ink-muted`), výraznější okraje mluvčích, bez dělení karty na odstavce, slider filtru ukazuje dB na škále
+  noise gate.
 - Existující kód je hustě komentovaný „proč“. U nezřejmých věcí (audio, iOS,
   Soniox) v tom pokračuj, jinak stručně.
 - **Nikdy necommituj ani nepushuj.** Commity i push dělá uživatel sám (ve VS

@@ -1,0 +1,25 @@
+/*
+ * shadcn/ui variables mapped onto the livelife tokens (replaces the
+ * generated `:root` / `.dark` blocks). Declared on :root = <html>, the same
+ * element that carries `data-theme`, so they resolve per theme.
+ */
+:root {
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--card-bg);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-solid);
+  --popover-foreground: var(--ink);
+  --primary: var(--brand);
+  --primary-foreground: var(--on-brand);
+  --secondary: var(--glass-strong);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-solid);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--glass-strong);
+  --accent-foreground: var(--ink);
+  --destructive: var(--live);
+  --border: var(--hairline);
+  --input: var(--toggle-off);
+  --ring: var(--focus);
+}

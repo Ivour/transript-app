@@ -1,0 +1,22 @@
+/* shadcn/ui proměnné napojené na livelife tokeny – nahraď jimi blok :root/.dark z shadcn init */
+:root {
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--card-bg);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-solid);
+  --popover-foreground: var(--ink);
+  --primary: var(--brand);
+  --primary-foreground: var(--on-brand);
+  --secondary: var(--glass-strong);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-solid);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--glass-strong);
+  --accent-foreground: var(--ink);
+  --destructive: var(--live);
+  --border: var(--hairline);
+  --input: var(--toggle-off);
+  --ring: var(--focus);
+  --radius: 18px;
+}

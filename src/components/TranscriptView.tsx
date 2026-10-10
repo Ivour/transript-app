@@ -1,82 +1,84 @@
+import { memo } from "react";
 import { type TranscriptState } from "../lib/transcript";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "../lib/cn";
+import LivelifeMark from "./LivelifeMark";
 
 interface TranscriptViewProps {
   transcript: TranscriptState;
-  /** Test build only: show Soniox's raw speaker id next to the label. */
+  /** Test build only: show Soniox's raw speaker id inside the card. */
   showSpeakerId?: boolean;
 }
 
-const BADGE_VARIANTS = [
-  "sky",
-  "emerald",
-  "amber",
-  "fuchsia",
-  "rose",
-  "indigo",
+/**
+ * Per-speaker card border, indexed by `Speaker.colorIndex` (cycles every 4
+ * speakers, see `SPEAKER_COLORS`). Literal class names so Tailwind picks
+ * them up.
+ */
+const SPEAKER_BORDERS = [
+  "border-spk1-border",
+  "border-spk2-border",
+  "border-spk3-border",
+  "border-spk4-border",
 ] as const;
 
 /**
- * Renders diarized transcript segments as speaker-labeled bubbles. Final
- * text is rendered solid (darkest); the still-volatile non-final tail is
- * rendered in a slightly muted but still highly readable shade — most
- * reading happens on the live non-final edge, so it must stay legible, not
- * washed out (see .clinerules section 6). Nothing here persists — it's a
- * pure view over in-memory state.
+ * Renders diarized transcript segments as full-width cards — one card per
+ * contiguous speaker run, speaker shown only by the card's border color (no
+ * names/timestamps, per the livelife design). Final text is solid `ink`;
+ * the still-volatile non-final tail is `ink-partial`, only a step lighter —
+ * most reading happens on the live edge, so it must stay strong (see
+ * .clinerules section 6).
+ *
+ * Memoized: the page re-renders ~10x/s for the mic level meter, the
+ * transcript only needs to when `transcript` changes.
  */
-export default function TranscriptView({
+function TranscriptView({
   transcript,
   showSpeakerId = false,
 }: TranscriptViewProps) {
-  if (transcript.segments.length === 0) {
+  const segments = transcript.segments.filter(
+    (segment) => segment.finalText || segment.nonFinalText,
+  );
+
+  if (segments.length === 0) {
     return (
-      <p className="text-center text-slate-400 dark:text-slate-500">
-        Přepis se zde zobrazí, jakmile začneš mluvit…
-      </p>
+      <div className="m-auto flex flex-col items-center gap-3">
+        <LivelifeMark className="h-17.5 w-24 text-brand-ink opacity-90" />
+        <h2 className="mt-2 font-rounded text-empty-title text-ink">
+          Řekni něco
+        </h2>
+      </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {transcript.segments.map((segment) => {
+    <div className="mt-auto flex flex-col gap-2.5">
+      {segments.map((segment) => {
         const speaker = segment.speakerId
           ? transcript.speakers[segment.speakerId]
           : null;
-        const variant = speaker
-          ? BADGE_VARIANTS[speaker.colorIndex]
-          : "slate";
-
-        if (!segment.finalText && !segment.nonFinalText) {
-          return null;
-        }
+        const border = speaker
+          ? SPEAKER_BORDERS[speaker.colorIndex % SPEAKER_BORDERS.length]
+          : "border-hairline";
 
         return (
           <div
             key={segment.id}
-            className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100 dark:bg-slate-800 dark:ring-slate-700"
+            className={cn(
+              "rounded-lg border-[1.5px] bg-card-bg px-4 py-3 text-ink",
+              "text-[length:var(--ts,19px)] leading-[1.42] tracking-[-0.01em] wrap-anywhere",
+              border,
+            )}
           >
-            <p
-              className="leading-relaxed"
-              style={{ fontSize: "var(--transcript-font-size, 18px)" }}
-            >
-              {speaker && (
-                <Badge
-                  variant={variant}
-                  className="mr-2 select-none align-middle"
-                >
-                  {speaker.label}
-                </Badge>
-              )}
+            <p>
               {showSpeakerId && segment.speakerId && (
-                <span className="mr-2 select-none align-middle text-[10px] text-slate-400">
+                <span className="mr-2 align-middle text-[10px] text-ink-muted select-none">
                   id {segment.speakerId}
                 </span>
               )}
-              <span className="text-slate-900 align-middle dark:text-slate-100">
-                {segment.finalText}
-              </span>
+              {segment.finalText}
               {segment.nonFinalText && (
-                <span className="text-slate-600 align-middle dark:text-slate-300">
+                <span className="text-ink-partial">
                   {segment.finalText ? " " : ""}
                   {segment.nonFinalText}
                 </span>
@@ -88,3 +90,5 @@ export default function TranscriptView({
     </div>
   );
 }
+
+export default memo(TranscriptView);

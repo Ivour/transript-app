@@ -46,12 +46,9 @@ export const INITIAL_TRANSCRIPT_STATE: TranscriptState = {
   speakers: {},
 };
 
-/** Tailwind text-color classes cycled deterministically per speaker. */
-export const SPEAKER_COLORS = [
-  "text-sky-600",
-  "text-emerald-600",
-  "text-amber-600",
-  "text-fuchsia-600",
-  "text-rose-600",
-  "text-indigo-600",
-] as const;
+/**
+ * Speaker color slots (livelife design: `spk1`..`spk4` tokens), cycled
+ * deterministically per speaker. Only the length matters here; the actual
+ * classes live in `TranscriptView`'s `SPEAKER_STYLES`.
+ */
+export const SPEAKER_COLORS = ["spk1", "spk2", "spk3", "spk4"] as const;

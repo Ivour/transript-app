@@ -49,17 +49,17 @@ function Row({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+        <span className="text-xs font-semibold text-ink">
           {label}
           {value && (
-            <span className="ml-1.5 font-normal tabular-nums text-slate-500 dark:text-slate-400">
+            <span className="ml-1.5 font-normal tabular-nums text-ink-muted">
               {value}
             </span>
           )}
         </span>
         {children}
       </div>
-      <p className="text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+      <p className="text-[11px] leading-snug text-ink-muted">
         {hint}
       </p>
     </div>
@@ -78,7 +78,7 @@ function Choice<T extends string | number | boolean | null>({
   disabled: boolean;
 }) {
   return (
-    <div className="flex shrink-0 overflow-hidden rounded-md ring-1 ring-slate-300 dark:ring-slate-600">
+    <div className="flex shrink-0 overflow-hidden rounded-md ring-1 ring-hairline">
       {options.map((option) => (
         <button
           key={String(option.value)}
@@ -88,8 +88,8 @@ function Choice<T extends string | number | boolean | null>({
           className={cn(
             "px-2 py-1 text-[11px] font-medium transition disabled:opacity-50",
             option.value === value
-              ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-              : "bg-transparent text-slate-600 dark:text-slate-300",
+              ? "bg-brand text-on-brand"
+              : "bg-transparent text-ink-muted",
           )}
         >
           {option.label}
@@ -131,27 +131,27 @@ export default function TuningPanel({
     .join(" · ");
 
   return (
-    <div className="flex w-full max-w-sm flex-col gap-2 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-red-300 dark:bg-slate-900 dark:ring-red-900">
+    <div className="flex w-full flex-col gap-2 rounded-md bg-glass-strong p-3 ring-1 ring-live/40">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className="flex items-center justify-between gap-2 text-left"
       >
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200">
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-ink">
           <SlidersHorizontal className="size-3.5" />
           Ladění (test)
         </span>
         {open ? (
-          <ChevronDown className="size-4 text-slate-500" />
+          <ChevronDown className="size-4 text-ink-muted" />
         ) : (
-          <ChevronUp className="size-4 text-slate-500" />
+          <ChevronUp className="size-4 text-ink-muted" />
         )}
       </button>
-      <p className="text-[10px] leading-snug text-slate-500 dark:text-slate-400">
+      <p className="text-[10px] leading-snug text-ink-muted">
         {summary}
       </p>
       {latency && (
-        <div className="flex flex-col gap-0.5 text-[10px] leading-snug tabular-nums text-slate-600 dark:text-slate-300">
+        <div className="flex flex-col gap-0.5 text-[10px] leading-snug tabular-nums text-ink-muted">
           <span>slovo → text {formatSummary(latency.wordToTextMs)}</span>
           <span>slovo → finál {formatSummary(latency.wordToFinalMs)}</span>
           <span>
@@ -168,9 +168,9 @@ export default function TuningPanel({
       )}
 
       {open && (
-        <div className="flex max-h-[45dvh] flex-col gap-3.5 overflow-y-auto border-t border-slate-200 pt-3 dark:border-slate-700">
+        <div className="flex max-h-[45dvh] flex-col gap-3.5 overflow-y-auto border-t border-hairline pt-3">
           {locked && (
-            <p className="rounded-md bg-amber-50 p-2 text-[11px] text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            <p className="rounded-md bg-warn/15 p-2 text-[11px] text-warn-ink">
               Nastavení jde měnit jen před spuštěním přepisu. Zastav přepis,
               změň, a spusť znovu. Po obnovení stránky se vše vrátí na výchozí.
             </p>
@@ -280,13 +280,13 @@ export default function TuningPanel({
             />
           </Row>
 
-          <p className="text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+          <p className="text-[11px] leading-snug text-ink-muted">
             Diagnostika: v každé bublině je u mluvčího malé „id“, tedy označení
             přímo ze Sonioxu. Pokud dva lidé mají stejné id, sloučil je Soniox,
             ne aplikace. Vzorkování mikrofonu (v souhrnu nahoře) je rychlost, jakou
             iPhone mikrofon čte; vestavěný mívá 48 kHz.
           </p>
-          <p className="text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+          <p className="text-[11px] leading-snug text-ink-muted">
             Zpoždění (nahoře, medián z posledních 40 měření; p90 = tak špatné
             je každé desáté): „slovo → text“ je čas od vyslovení slova po jeho
             první zobrazení, „slovo → finál“ po zčernání. „Soniox zaostává“ je

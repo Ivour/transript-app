@@ -1,0 +1,91 @@
+/*
+ * livelife color tokens (source: livelife-design/tokens.css) — only the
+ * values that differ per theme. Dark is the default; `data-theme` lives on
+ * <html> (see useTheme). Theme-independent values (fonts, radii, blur, type
+ * scale) are static `@theme` variables in theme.css instead.
+ *
+ * Exposed to Tailwind as colors in theme.css (`bg-canvas`, `text-ink`...).
+ * The rest (glow, meter, thumb, shadows) is used only by the component
+ * classes in index.css.
+ */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0a0c0f;
+  /* Ambient background glows. Brighter than the design (#0c211d, #0e1626,
+     #18120d), which were barely visible on the dark canvas; aimed at
+     roughly the same presence as the light theme's glows. */
+  --glow-mint: #123a30;
+  --glow-blue: #172a4a;
+  --glow-warm: #2e2011;
+  --glass: rgb(26 30 35 / 0.62);
+  --glass-strong: rgb(44 50 57 / 0.7);
+  --glass-edge: rgb(255 255 255 / 0.1);
+  --surface-solid: #14181c;
+  --card-bg: #13171b;
+  --hairline: rgb(255 255 255 / 0.1);
+  --meter-track: rgb(255 255 255 / 0.12);
+  --ink: #e9eef0;
+  /* Live (non-final) transcript text: what the user mostly reads, so it is
+     only a step below `ink`, much stronger than `ink-muted`. */
+  --ink-partial: #c9d2d6;
+  --ink-muted: #9aa5ab;
+  --brand: #3be8bf;
+  --on-brand: #02221b;
+  --brand-ink: #5ff0cb;
+  --toggle-on: #3be8bf;
+  --toggle-off: #5c6c71;
+  --thumb: #ffffff;
+  --live: #ff6b61;
+  --on-live: #1a0504;
+  --warn: #ffb340;
+  --on-warn: #1f1300;
+  --warn-ink: #ffc766;
+  --focus: #8ab4ff;
+  /* Speaker card borders (design had ~0.5 alpha; raised for clearer
+     speaker separation). */
+  --spk1-border: rgb(59 232 191 / 0.72);
+  --spk2-border: rgb(111 168 255 / 0.72);
+  --spk3-border: rgb(182 156 255 / 0.72);
+  --spk4-border: rgb(255 143 163 / 0.72);
+  --glass-shadow:
+    0 10px 36px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.12);
+  --thumb-shadow: 0 2px 6px rgb(0 0 0 / 0.28);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #eef1f3;
+  --glow-mint: #d6f3ea;
+  --glow-blue: #dde6f7;
+  --glow-warm: #f6eadc;
+  --glass: rgb(255 255 255 / 0.62);
+  --glass-strong: rgb(255 255 255 / 0.8);
+  --glass-edge: rgb(255 255 255 / 0.85);
+  --surface-solid: #f9fafb;
+  --card-bg: #ffffff;
+  --hairline: rgb(10 30 36 / 0.12);
+  --meter-track: rgb(10 30 36 / 0.12);
+  --ink: #0c1417;
+  --ink-partial: #2c3a3f;
+  --ink-muted: #4b5c61;
+  --brand: #1fd6ac;
+  --on-brand: #02221b;
+  --brand-ink: #00705a;
+  --toggle-on: #0a8f75;
+  --toggle-off: #75868b;
+  --thumb: #ffffff;
+  --live: #c2271e;
+  --on-live: #ffffff;
+  --warn: #b45f00;
+  --on-warn: #ffffff;
+  --warn-ink: #8a4b00;
+  --focus: #0b57d0;
+  --spk1-border: rgb(10 143 117 / 0.75);
+  --spk2-border: rgb(47 111 214 / 0.7);
+  --spk3-border: rgb(123 92 224 / 0.7);
+  --spk4-border: rgb(210 69 107 / 0.7);
+  --glass-shadow:
+    0 8px 32px rgb(10 40 45 / 0.14), inset 0 1px 0 rgb(255 255 255 / 0.8);
+  --thumb-shadow: 0 2px 6px rgb(0 0 0 / 0.28);
+}

@@ -1,26 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
 import { useAuth } from "../hooks/useAuth";
 import { useSonioxTranscription } from "../hooks/useSonioxTranscription";
 import { useWakeLock } from "../hooks/useWakeLock";
-import { useDarkMode } from "../hooks/useDarkMode";
+import { useTheme } from "../hooks/useTheme";
+import AppHeader from "../components/AppHeader";
 import RecordButton from "../components/RecordButton";
 import TranscriptView from "../components/TranscriptView";
-import SensitivitySlider from "../components/SensitivitySlider";
+import LevelFilter from "../components/LevelFilter";
 import FontSizeControl from "../components/FontSizeControl";
-import Pill from "../components/Pill";
 import TuningPanel from "../components/TuningPanel";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import {
-  BarChart2,
-  LogOut,
-  Moon,
-  SignalHigh,
-  SignalLow,
-  Sun,
-  TentTree,
-} from "lucide-react";
+import { Moon, Signal, Sun } from "lucide-react";
 import {
   DEFAULT_AUDIO_QUALITY_MODE,
   DEFAULT_NOISE_GATE_AMOUNT,
@@ -29,7 +18,11 @@ import {
 import { cn } from "../lib/cn";
 import { DEFAULT_TUNING, type TuningSettings } from "../lib/tuning";
 
-const isTest =  import.meta.env.VITE_APP_ENV === "test"; 
+const isTest = import.meta.env.VITE_APP_ENV === "test";
+
+/** Round 48px dock button (theme, weak signal). */
+const roundButtonClassName =
+  "grid size-12 flex-none place-items-center rounded-full bg-glass-strong text-ink focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-focus disabled:opacity-50";
 
 /**
  * Main screen: live diarized transcription. Composes
@@ -62,9 +55,8 @@ export default function TranscribePage() {
     setNoiseGateAmount(amount);
   };
 
-  // Session-only — always starts in light mode, never persisted (see
-  // useDarkMode / .clinerules).
-  const { isDarkMode, toggleDarkMode } = useDarkMode();
+  // Session-only — always starts dark, never persisted (see useTheme).
+  const { theme, toggleTheme } = useTheme();
 
   // "Weak signal" toggle — session-only, always resets to "normal" on
   // page load, same convention as dark mode/font size (see .clinerules).
@@ -111,118 +103,101 @@ export default function TranscribePage() {
     prevScrollHeightRef.current = container.scrollHeight;
   }, [transcript]);
 
+  const isLowSignal = audioQualityMode === "low_bandwidth";
+
   return (
-    <div className={cn(isDarkMode && "dark")}>
-      <div className="flex h-dvh flex-col overflow-hidden bg-slate-50 dark:bg-slate-950">
-        <header className="flex items-center justify-center p-4">
-          <Pill className="w-full max-w-sm justify-between py-2 pl-4 pr-2">
-            <div className="flex shrink-0 items-center gap-1.5 text-slate-600 dark:text-slate-300">
-              <TentTree className="size-6" />
-            </div>
+    // `data-signal="low"` swaps the glass surfaces for solid ones and drops
+    // the ambient glow (see `.glass` in index.css).
+    <div
+      className="ll-app relative h-dvh overflow-hidden text-ink"
+      data-signal={isLowSignal ? "low" : "ok"}
+    >
+      <AppHeader onSignOut={() => void signOut()} />
 
-            <div className="flex shrink-0 items-center gap-3">
-              <Link to="/usage">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Historie a statistiky využití"
-                  title="Statistiky využití"
-                >
-                  <BarChart2 className="size-4 text-slate-600 dark:text-slate-300" />
-                </Button>
-              </Link>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => void signOut()}
-                aria-label="Odhlásit se"
-                title="Odhlásit se"
-              >
-                <LogOut className="size-4 text-slate-600 dark:text-slate-300" />
-              </Button>
-            </div>
-          </Pill>
-        </header>
+      {isLowSignal && (
+        <div className="pointer-events-none absolute inset-x-0 top-[calc(var(--safe-top)+--spacing(14))] z-10 flex justify-center">
+          <span className="glass inline-flex h-8 items-center gap-2 rounded-full px-3 text-footnote text-warn-ink">
+            <Signal className="size-4" strokeWidth={2.4} />
+            Slabý signál
+          </span>
+        </div>
+      )}
 
-        <main
-          ref={mainContainerRef}
-          className={cn(
-            "flex-1 overflow-y-auto p-4",
-            // The test build's tuning panel makes the fixed footer taller.
-            isTest ? "pb-80" : "pb-48",
-          )}
-        >
-          <TranscriptView transcript={transcript} showSpeakerId={isTest} />
-        </main>
+      {/* Cards sit at the bottom (TranscriptView's `mt-auto`) and scroll
+          under the header and the dock; the padding keeps the newest card
+          above the dock. */}
+      <main
+        ref={mainContainerRef}
+        className={cn(
+          "ll-feed flex h-full flex-col overflow-y-auto px-4 pt-[calc(var(--safe-top)+--spacing(25))]",
+          // The test build's tuning panel makes the dock taller.
+          isTest
+            ? "pb-[calc(var(--safe-bottom)+--spacing(75))]"
+            : "pb-[calc(var(--safe-bottom)+--spacing(40))]",
+        )}
+      >
+        <TranscriptView transcript={transcript} showSpeakerId={isTest} />
+      </main>
 
-        <footer className="fixed inset-x-0 bottom-0 flex flex-col items-center gap-2 bg-gradient-to-t from-slate-50 via-slate-50 to-transparent p-6 dark:from-slate-950 dark:via-slate-950">
-          {(error || audioError) && (
-            <p className="max-w-sm text-center text-sm text-rose-600 dark:text-rose-400">
-              {audioError?.isPermissionDenied
-                ? "Přístup k mikrofonu byl zamítnut. Povol ho v nastavení prohlížeče."
-                : error || audioError?.message}
-            </p>
-          )}
+      <div className="glass absolute inset-x-3 bottom-(--dock-bottom) z-10 flex flex-col gap-2.5 rounded-xl p-3">
+        {(error || audioError) && (
+          <p className="px-2 text-center text-footnote text-live">
+            {audioError?.isPermissionDenied
+              ? "Přístup k mikrofonu byl zamítnut. Povol ho v nastavení prohlížeče."
+              : error || audioError?.message}
+          </p>
+        )}
 
-          <Pill className="grid w-full max-w-sm grid-cols-3 items-center py-2 pl-4 pr-2">
-            <div className="flex items-center gap-2.5 justify-self-start">
-              <SignalHigh className="size-4 text-slate-400 dark:text-slate-500" />
-              <Switch
-                checked={audioQualityMode === "low_bandwidth"}
-                onCheckedChange={(checked) =>
-                  setAudioQualityMode(checked ? "low_bandwidth" : "normal")
-                }
-                disabled={!canChangeAudioQualityMode}
-                aria-label="Přepnout na režim pro slabý signál (nižší kvalita zvuku, méně dat)"
-                title="Musí se zapnout před spuštěním přepisu"
-              />
-              <SignalLow className="size-4 text-slate-400 dark:text-slate-500" />
-            </div>
+        {isTest && (
+          <TuningPanel
+            tuning={tuning}
+            onChange={setTuning}
+            locked={!canChangeAudioQualityMode}
+            nativeSampleRate={nativeSampleRate}
+            latency={latency}
+          />
+        )}
 
-            <div className="flex items-center gap-2.5 justify-self-center">
-              <Sun className="size-4 text-slate-400 dark:text-slate-500" />
-              <Switch
-                checked={isDarkMode}
-                onCheckedChange={toggleDarkMode}
-                aria-label="Přepnout tmavý režim"
-              />
-              <Moon className="size-4 text-slate-400 dark:text-slate-500" />
-            </div>
-            <div className="justify-self-end">
-              <FontSizeControl />
-            </div>
-          </Pill>
+        <LevelFilter
+          amount={noiseGateAmount}
+          onAmountChange={handleNoiseGateAmountChange}
+          micLevelDb={micLevelDb}
+        />
 
-          {isTest && (
-            <TuningPanel
-              tuning={tuning}
-              onChange={setTuning}
-              locked={!canChangeAudioQualityMode}
-              nativeSampleRate={nativeSampleRate}
-              latency={latency}
-            />
-          )}
-
-          <Pill
+        <div className="flex items-center gap-2">
+          <FontSizeControl />
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={
+              theme === "dark" ? "Přepnout na světlý motiv" : "Přepnout na tmavý motiv"
+            }
+            className={roundButtonClassName}
+          >
+            {theme === "dark" ? (
+              <Moon className="size-5.5" />
+            ) : (
+              <Sun className="size-5.5" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setAudioQualityMode(isLowSignal ? "normal" : "low_bandwidth")
+            }
+            aria-pressed={isLowSignal}
+            disabled={!canChangeAudioQualityMode}
+            aria-label="Režim pro slabý signál (nižší kvalita zvuku, méně dat)"
+            title="Musí se zapnout před spuštěním přepisu"
             className={cn(
-              "w-full max-w-sm gap-4 py-2 pl-4 pr-2",
-              isTest && "border border-red-500",
+              roundButtonClassName,
+              isLowSignal && "bg-warn text-on-warn",
             )}
           >
-            <SensitivitySlider
-              amount={noiseGateAmount}
-              onAmountChange={handleNoiseGateAmountChange}
-              micLevelDb={micLevelDb}
-            />
-            <div className="shrink-0">
-              <RecordButton
-                status={status}
-                onStart={handleStart}
-                onStop={stop}
-              />
-            </div>
-          </Pill>
-        </footer>
+            <Signal className="size-5.5" strokeWidth={2.4} />
+          </button>
+          <RecordButton status={status} onStart={handleStart} onStop={stop} />
+        </div>
       </div>
     </div>
   );

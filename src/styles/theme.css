@@ -1,0 +1,89 @@
+/*
+ * Tailwind theme for livelife. Import after tokens.css and shadcn.css.
+ *
+ * - `@theme`: static values (fonts, radii, blur, type scale). Plain values
+ *   only — a `--font-sans: var(--font-sans)` style alias would reference
+ *   itself in Tailwind's theme layer.
+ * - `@theme inline`: colors pointing at the per-theme tokens, so utilities
+ *   like `bg-canvas` read the variable where they are used and follow
+ *   `data-theme`.
+ */
+
+/* shadcn components use `dark:`; drive it from data-theme, not `.dark`. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-rounded:
+    ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+
+  /* livelife radii; deliberately replace Tailwind's/shadcn's scale (pills
+     and soft cards everywhere). */
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+
+  --blur-glass: 24px;
+  --blur-header: 16px;
+
+  --text-wordmark: 22px;
+  --text-wordmark--line-height: 26px;
+  --text-wordmark--font-weight: 700;
+  --text-empty-title: 28px;
+  --text-empty-title--line-height: 34px;
+  --text-empty-title--font-weight: 700;
+  --text-callout: 15px;
+  --text-callout--line-height: 20px;
+  --text-callout--font-weight: 500;
+  --text-footnote: 13px;
+  --text-footnote--line-height: 18px;
+  --text-footnote--font-weight: 500;
+}
+
+@theme inline {
+  /* livelife */
+  --color-canvas: var(--canvas);
+  --color-glass: var(--glass);
+  --color-glass-strong: var(--glass-strong);
+  --color-surface-solid: var(--surface-solid);
+  --color-card-bg: var(--card-bg);
+  --color-hairline: var(--hairline);
+  --color-ink: var(--ink);
+  --color-ink-partial: var(--ink-partial);
+  --color-ink-muted: var(--ink-muted);
+  --color-brand: var(--brand);
+  --color-on-brand: var(--on-brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-live: var(--live);
+  --color-on-live: var(--on-live);
+  --color-warn: var(--warn);
+  --color-on-warn: var(--on-warn);
+  --color-warn-ink: var(--warn-ink);
+  --color-focus: var(--focus);
+  --color-spk1-border: var(--spk1-border);
+  --color-spk2-border: var(--spk2-border);
+  --color-spk3-border: var(--spk3-border);
+  --color-spk4-border: var(--spk4-border);
+
+  /* shadcn */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}

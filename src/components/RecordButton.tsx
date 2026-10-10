@@ -34,11 +34,10 @@ export default function RecordButton({
       onClick={isActive ? onStop : onStart}
       disabled={isConnecting || status === "stopping"}
       className={cn(
-        "flex h-16 w-16 items-center justify-center rounded-full shadow-lg transition",
+        "flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-full text-[17px]/6 font-semibold transition-transform active:scale-[.98]",
+        "focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-focus",
         "disabled:cursor-not-allowed disabled:opacity-70",
-        isActive
-          ? "bg-rose-600 text-white hover:bg-rose-500"
-          : "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200",
+        isActive ? "bg-live text-on-live" : "bg-brand text-on-brand",
       )}
       aria-label={
         isConnecting
@@ -49,13 +48,18 @@ export default function RecordButton({
       }
     >
       {isConnecting ? (
-        <Loader2 size={24} className="animate-spin" />
+        <Loader2 className="size-5 animate-spin" />
       ) : isActive ? (
-        <Square size={24} />
+        <>
+          <Square className="size-5" fill="currentColor" strokeWidth={0} />
+          Stop
+        </>
       ) : (
-        <Mic size={24} />
+        <>
+          <Mic className="size-5" />
+          Start
+        </>
       )}
     </button>
   );
 }
-
