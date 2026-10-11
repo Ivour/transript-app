@@ -4,12 +4,10 @@ import LoginPage from "./routes/LoginPage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import TranscribePage from "./routes/TranscribePage";
 import UsagePage from "./routes/UsagePage";
-import StatusBarBackdrop from "./components/StatusBarBackdrop";
 
 function App() {
   return (
     <BrowserRouter>
-      <StatusBarBackdrop />
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />

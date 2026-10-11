@@ -11,10 +11,12 @@
     <!-- Updated at runtime by useTheme (dark is the default theme). -->
     <meta name="theme-color" content="#0a0c0f" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta
-      name="apple-mobile-web-app-status-bar-style"
-      content="black-translucent"
-    />
+    <!-- `black`, not `black-translucent`: iOS draws its own solid status bar
+         and the page starts below it. With `black-translucent` the page ran
+         under the status bar, where iOS blurred the header icons, and 100dvh
+         came out short by the status bar height right after launch (a gap
+         under the dock until the first scroll). -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="livelife" />
     <title>livelife</title>

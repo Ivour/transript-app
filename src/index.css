@@ -23,43 +23,19 @@
 
 /* Liquid glass: only the floating header pills and the dock. Content
    (transcript cards) stays solid for legibility. A utility (not a
-   component class) so it sorts and composes like any other class.
-
-   The frosted surface lives on `::before`, not on the element itself, so
-   the icons/text are NOT inside the backdrop-filter layer: in the iOS
-   home-screen PWA, content of an element with `backdrop-filter` rendered
-   soft/blurry. No z-index on the pseudo-element (a stacking context could
-   become a "backdrop root" and change what gets blurred); instead the
-   direct children are positioned, so they paint after (above) `::before`.
-   The element must be positioned itself (`relative` / `absolute`). The
-   transparent border keeps the old box size; `::before` draws the real
-   edge over it. */
+   component class) so it sorts and composes like any other class. */
 @utility glass {
-  border: 1px solid transparent;
+  background-color: var(--glass);
+  border: 1px solid var(--glass-edge);
   box-shadow: var(--glass-shadow);
-
-  &::before {
-    content: "";
-    position: absolute;
-    inset: -1px;
-    border: 1px solid var(--glass-edge);
-    border-radius: inherit;
-    background-color: var(--glass);
-    pointer-events: none;
-    @apply backdrop-blur-glass backdrop-saturate-180;
-  }
-  & > * {
-    position: relative;
-  }
+  @apply backdrop-blur-glass backdrop-saturate-180;
 
   /* Weak-signal mode: no blur, solid surface. Also the cheapest render
      path (backdrop blur over a scrolling list costs GPU/battery). */
   [data-signal="low"] & {
-    box-shadow: none;
-  }
-  [data-signal="low"] &::before {
     background-color: var(--surface-solid);
     border-color: var(--hairline);
+    box-shadow: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
@@ -90,19 +66,13 @@
     --dock-radius: calc(var(--screen-radius) - 12px);
     --dock-inner-radius: calc(var(--dock-radius) - 16px);
     background-color: var(--canvas);
-    /* First layer: plain canvas under the status bar / Dynamic Island,
-       fading out below it, so the top of the app runs seamlessly into the
-       island area (iOS shows our background there in the standalone PWA).
-       The mint glow starts lower for the same reason, and the two glows sit
-       on a diagonal (mint upper left, blue lower right). A smaller warm glow
-       in the bottom-left corner meets the blue behind the dock, so the
+    /* First layer: plain canvas at the top, fading out, so the header area
+       stays calm and the mint glow starts lower. The two glows sit on a
+       diagonal (mint upper left, blue lower right). A smaller warm glow in
+       the bottom-left corner meets the blue behind the dock, so the
        frosted dock shades from warm to cool. */
     background-image:
-      linear-gradient(
-        to bottom,
-        var(--canvas) env(safe-area-inset-top),
-        transparent calc(env(safe-area-inset-top) + 160px)
-      ),
+      linear-gradient(to bottom, var(--canvas), transparent 160px),
       radial-gradient(120% 50% at 0% 24%, var(--glow-mint) 0%, transparent 65%),
       radial-gradient(110% 55% at 100% 72%, var(--glow-blue) 0%, transparent 68%),
       radial-gradient(80% 32% at 0% 100%, var(--glow-warm) 0%, transparent 70%);
@@ -112,7 +82,7 @@
   }
 
   /* Fade behind the header so cards scroll "under" it. Canvas-colored
-     (not the grey `glass-strong`) so it matches the status-bar area above.
+     (not the grey `glass-strong`) so it matches the canvas at the top.
      No backdrop blur: the feed is already masked out up here (`.ll-feed`),
      so it only blurred the glow, and in iOS Safari a masked backdrop-filter
      layer under the glass pills rendered their icons soft/blurry. */

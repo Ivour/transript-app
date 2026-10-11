@@ -18,12 +18,12 @@ export default function AppHeader({ onSignOut }: AppHeaderProps) {
   return (
     <header className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-4 pt-(--safe-top) pb-3">
       <div className="ll-header-fade" />
-      <div className="glass relative flex h-11 items-center gap-2 rounded-full pr-4 pl-3">
+      <div className="glass flex h-11 items-center gap-2 rounded-full pr-4 pl-3">
         <LivelifeMark className="h-5.5 w-7.5 flex-none text-brand-ink" />
         <span className="font-rounded text-wordmark text-ink">livelife</span>
       </div>
       <div
-        className="glass relative flex h-11 items-center rounded-full px-0.5"
+        className="glass flex h-11 items-center rounded-full px-0.5"
         role="toolbar"
       >
         <Link

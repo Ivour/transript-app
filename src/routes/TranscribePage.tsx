@@ -108,15 +108,18 @@ export default function TranscribePage() {
   return (
     // `data-signal="low"` swaps the glass surfaces for solid ones and drops
     // the ambient glow (see `.glass` in index.css).
+    // `fixed inset-0`, not `h-dvh`: a fixed box always fills the viewport
+    // (100dvh was once short after a PWA launch, see the status-bar meta in
+    // index.html) and the page can't be scrolled/bounced.
     <div
-      className="ll-app relative h-dvh overflow-hidden text-ink"
+      className="ll-app fixed inset-0 overflow-hidden text-ink"
       data-signal={isLowSignal ? "low" : "ok"}
     >
       <AppHeader onSignOut={() => void signOut()} />
 
       {isLowSignal && (
         <div className="pointer-events-none absolute inset-x-0 top-[calc(var(--safe-top)+--spacing(14))] z-10 flex justify-center">
-          <span className="glass relative inline-flex h-8 items-center gap-2 rounded-full px-3 text-footnote text-warn-ink">
+          <span className="glass inline-flex h-8 items-center gap-2 rounded-full px-3 text-footnote text-warn-ink">
             <Signal className="size-4" strokeWidth={2.4} />
             Slabý signál
           </span>
