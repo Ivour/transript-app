@@ -251,7 +251,7 @@ export default function TuningPanel({
 
           <Row
             label="Automatická hlasitost"
-            hint="Zesiluje tichý hlas a zeslabuje hlasitý. „Výchozí“ nechá rozhodnutí na iPhonu (obvykle zapnuto). Může způsobit, že hlasitost mezi větami kolísá."
+            hint="Zesiluje tichý hlas a zeslabuje hlasitý. Standardně vypnuto: v pauzách by zesílila hluk a lidi od vedlejšího stolu. „Výchozí“ nechá rozhodnutí na iPhonu (obvykle zapnuto)."
           >
             <Choice
               options={[

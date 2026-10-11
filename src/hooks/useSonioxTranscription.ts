@@ -89,14 +89,54 @@ interface UseSonioxTranscriptionResult {
 
 
 /**
+ * Session-long speaker -> color assignment. Must outlive the token window:
+ * `MAX_FINAL_TOKENS` drops old tokens, and deriving colors from "first
+ * appearance among kept tokens" (the old approach) re-shuffled every color
+ * whenever the oldest speaker fell out of the window. With >4 ids (noisy pub:
+ * neighbours/noise get ids 3, 4, 5...) the 4 colors also cycled, so two
+ * active people ended up with the same border and looked like one bubble.
+ */
+interface SpeakerRegistry {
+  speakers: Record<string, Speaker>;
+  /** Per color: latest token end (audio ms) seen in that color, -Infinity = never used. */
+  colorLastUsedMs: number[];
+}
+
+function createSpeakerRegistry(): SpeakerRegistry {
+  return {
+    speakers: {},
+    colorLastUsedMs: SPEAKER_COLORS.map(() => Number.NEGATIVE_INFINITY),
+  };
+}
+
+/**
+ * Least-recently-used color: the first 4 speakers get colors 1-4 in order;
+ * a 5th id takes the color of whoever has been silent the longest instead of
+ * blindly colliding with an active speaker (`index % 4`).
+ */
+function pickLeastRecentlyUsedColor(registry: SpeakerRegistry): number {
+  let best = 0;
+  for (let i = 1; i < registry.colorLastUsedMs.length; i++) {
+    if (registry.colorLastUsedMs[i] < registry.colorLastUsedMs[best]) {
+      best = i;
+    }
+  }
+  return best;
+}
+
+/**
  * Rebuilds the TranscriptState from all cumulative final tokens and the latest non-final tokens.
  * Since Soniox guarantees final tokens are sent stream-once and non-final tokens are the active tail,
  * sorting them chronologically and partitioning into speaker-consecutive segments fully resolves out-of-order
  * finalization/segment duplication issues.
+ *
+ * Mutates `registry` (assigns colors to new speaker ids, tracks color usage),
+ * so call it outside a state updater — StrictMode runs updaters twice.
  */
 function rebuildTranscriptState(
   finalTokens: SonioxToken[],
   nonFinalTokens: SonioxToken[],
+  registry: SpeakerRegistry,
 ): TranscriptState {
   const combined = [...finalTokens, ...nonFinalTokens];
 
@@ -112,19 +152,26 @@ function rebuildTranscriptState(
   });
 
   const segments: TranscriptSegment[] = [];
-  const speakers: Record<string, Speaker> = {};
+  const { speakers, colorLastUsedMs } = registry;
 
   for (let tokenIndex = 0; tokenIndex < combined.length; tokenIndex++) {
     const token = combined[tokenIndex];
     const speakerId = token.speaker ?? null;
 
-    if (speakerId && !speakers[speakerId]) {
-      const speakerIndex = Object.keys(speakers).length;
-      speakers[speakerId] = {
-        id: speakerId,
-        label: `Mluvčí ${speakerIndex + 1}`,
-        colorIndex: speakerIndex % SPEAKER_COLORS.length,
-      };
+    if (speakerId) {
+      let speaker = speakers[speakerId];
+      if (!speaker) {
+        speaker = {
+          id: speakerId,
+          label: `Mluvčí ${Object.keys(speakers).length + 1}`,
+          colorIndex: pickLeastRecentlyUsedColor(registry),
+        };
+        speakers[speakerId] = speaker;
+      }
+      const tokenEndMs = token.end_ms ?? token.start_ms ?? 0;
+      if (tokenEndMs > colorLastUsedMs[speaker.colorIndex]) {
+        colorLastUsedMs[speaker.colorIndex] = tokenEndMs;
+      }
     }
 
     let lastSegment = segments[segments.length - 1];
@@ -147,7 +194,8 @@ function rebuildTranscriptState(
     }
   }
 
-  return { segments, speakers };
+  // Copy: the registry keeps mutating, rendered state must not.
+  return { segments, speakers: { ...speakers } };
 }
 
 /**
@@ -177,6 +225,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
 
   const socketRef = useRef<WebSocket | null>(null);
   const finalTokensRef = useRef<SonioxToken[]>([]);
+  const speakerRegistryRef = useRef<SpeakerRegistry>(createSpeakerRegistry());
   const keepAliveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -386,6 +435,7 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
     setError(null);
     setTranscript(INITIAL_TRANSCRIPT_STATE);
     finalTokensRef.current = [];
+    speakerRegistryRef.current = createSpeakerRegistry();
     setStatus("connecting");
 
     // Fresh measurement per session; the clock starts at the tap.
@@ -509,7 +559,13 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
         }
 
 
-        setTranscript(() => rebuildTranscriptState(finalTokensRef.current, nonFinalTokens));
+        setTranscript(
+          rebuildTranscriptState(
+            finalTokensRef.current,
+            nonFinalTokens,
+            speakerRegistryRef.current,
+          ),
+        );
       };
 
       socket.onerror = () => {

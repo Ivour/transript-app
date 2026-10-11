@@ -15,8 +15,10 @@ Komunikace s uživatelem česky. Kód, komentáře a commity anglicky, texty v U
 2. **Přesnost přepisu** a **správná diarizace** (jedna věta = jeden mluvčí).
 3. Spotřeba dat a baterie.
 
-Nezáleží na clean code, multi-tenant ani veřejných uživatelích. Použití je i
-v hlučném prostředí, někdy s externím bezdrátovým mikrofonem Rode.
+Čistý a čitelný kód je důležitý, ale není to priorita: když je v konfliktu s
+latencí nebo přesností, ustupuje. Multi-tenant ani veřejní uživatelé se
+neřeší. Použití je i v hlučném prostředí, někdy s externím bezdrátovým
+mikrofonem Rode.
 
 ## Kdo za co odpovídá
 
@@ -155,8 +157,11 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
 - `getUserMedia` má `echoCancellation` a `noiseSuppression` **vypnuté**
   (`MIC_*` v `audio/constants.ts`): na iOS zapínají voice processing, který
   mění zabarvení hlasu a zhoršuje diarizaci (dvě podobné ženy se slily).
-  Neověřeno v hlučném prostředí a s Rode — k porovnání slouží testovací
-  panel (viz níže).
+  Od 2026-10-11 je vypnuté i `autoGainControl` (`MIC_AUTO_GAIN_CONTROL`,
+  rozhodl uživatel): v pauzách by zesilovalo hluk a vedlejší stůl. Cena:
+  tichý vzdálený hlas se nezesílí. Neověřeno v hlučném prostředí a s Rode,
+  k porovnání slouží testovací panel (viz níže, u AGC i „výchozí“ =
+  prohlížeč).
 - **Testovací panel** (`TuningPanel`, `lib/tuning.ts`, jen když
   `VITE_APP_ENV=test`): přepínače pro detekci konce promluvy, ozvěnu, šum,
   automatickou hlasitost a velikost chunku, plus diagnostika (vzorkování
@@ -187,9 +192,14 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
 - **Parametry Sonioxu před změnou ověř v dokumentaci**
   (`https://soniox.com/docs/stt/api-reference/websocket-api`); některé
   parametry jsou jen pro v5 a jiné modely je mohou odmítnout chybou 400.
-- Diarizace v UI: štítek „Mluvčí N“ je podle pořadí prvního výskytu a bublina
-  je souvislý běh tokenů stejného mluvčího. Jeden špatně označený token tedy
-  rozdělí bublinu.
+- Diarizace v UI: barva (a štítek „Mluvčí N“) se přiděluje jednou za session
+  (`SpeakerRegistry` v `useSonioxTranscription.ts`), ořez tokenů ji nemění.
+  Nové ID dostane nejdéle nepoužitou ze 4 barev (LRU), aby páté ID (hluk,
+  vedlejší stůl) nepřebralo barvu aktivního člověka. Dřív se barvy počítaly
+  jen z tokenů v okně a při ořezu se přeházely; v hospodě (2026-10-10) to
+  vypadalo, jako by diarizace po čase přestala fungovat. Bublina je souvislý
+  běh tokenů stejného mluvčího. Jeden špatně označený token tedy rozdělí
+  bublinu.
 - Stop (`stop()`) pošle `finalize` a po 300 ms zavře socket bez čekání na
   `finished`. Může se tím ztratit konec poslední věty. **Uživatel to
   neřeší** (na posledních větách nezáleží), důležité je jen, aby se session

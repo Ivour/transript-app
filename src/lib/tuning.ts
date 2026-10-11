@@ -8,6 +8,7 @@
  */
 import {
   CHUNK_DURATION_MS,
+  MIC_AUTO_GAIN_CONTROL,
   MIC_ECHO_CANCELLATION,
   MIC_NOISE_SUPPRESSION,
 } from "../audio/constants";
@@ -35,7 +36,10 @@ export interface TuningSettings {
   /** getUserMedia voice processing — see MIC_* in audio/constants.ts. */
   echoCancellation: boolean;
   noiseSuppression: boolean;
-  /** `null` = leave the browser default (usually on) — the original behavior. */
+  /**
+   * `null` = leave the browser default (usually on), the pre-2026-10-11
+   * behavior; kept selectable in the test panel. Default: MIC_AUTO_GAIN_CONTROL.
+   */
   autoGainControl: boolean | null;
   /** Size of each PCM chunk sent to Soniox, see CHUNK_DURATION_MS. */
   chunkMs: number;
@@ -49,7 +53,7 @@ export interface TuningSettings {
  *   add delay; smaller ones cost battery for a gain nobody can perceive.
  * - endpoint detection off: Soniox documents it as lowering diarization
  *   accuracy; the price is slower "blackening" of text.
- * - echo/noise processing off, AGC left to the browser: see MIC_* constants.
+ * - echo/noise processing and AGC off: see MIC_* constants.
  */
 export const DEFAULT_TUNING: TuningSettings = {
   endpointDetection: false,
@@ -57,7 +61,7 @@ export const DEFAULT_TUNING: TuningSettings = {
   endpointSensitivity: -0.5,
   echoCancellation: MIC_ECHO_CANCELLATION,
   noiseSuppression: MIC_NOISE_SUPPRESSION,
-  autoGainControl: null,
+  autoGainControl: MIC_AUTO_GAIN_CONTROL,
   chunkMs: CHUNK_DURATION_MS,
 };
 

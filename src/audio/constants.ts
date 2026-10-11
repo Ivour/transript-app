@@ -72,6 +72,18 @@ export const CHUNK_DURATION_MS = 60;
 export const MIC_ECHO_CANCELLATION = false;
 export const MIC_NOISE_SUPPRESSION = false;
 
+/**
+ * Browser auto gain control: OFF (2026-10-11; before it was left to the
+ * browser, usually on). AGC is built for calls: in a noisy venue it "pumps",
+ * raising the gain in every pause so the next table comes up almost as loud
+ * as the people talking — Soniox then transcribes them and hands out extra
+ * speaker ids. Soniox needs no level normalization. Trade-off: a quiet, more
+ * distant voice (friend across the table while the Rode is clipped on the
+ * user) is not boosted either. Test panel keeps "výchozí" (browser default)
+ * and "zap" for comparison.
+ */
+export const MIC_AUTO_GAIN_CONTROL = false;
+
 /** Path (served from `public/`) to the AudioWorklet module. */
 export const PCM_RECORDER_WORKLET_URL = "/worklets/pcm-recorder-worklet.js";
 

@@ -76,9 +76,10 @@ v protokolech fungují, starší `temp:` formát jen v hlavičce `Authorization`
 kterou prohlížeč nenastaví. Po změně hned zkusit Start. Návrh commitu: `feat:
 send Soniox key via WebSocket protocols`.
 
-**Bod 7: A/B v hluku (až bude situace E).** `autoGainControl: null` je výchozí
-chování prohlížeče (v Safari typicky zapnuté a v hluku může „pumpovat“
-hlasitost); potlačení šumu a ozvěny se posuzuje podle přepisu a mluvčích v
+**Bod 7: A/B v hluku (až bude situace E).** `autoGainControl` je od
+2026-10-11 výchozí `false` (dřív `null` = prohlížeč, v Safari typicky zapnuté,
+v hluku „pumpuje“ a v pauzách zesílí vedlejší stůl). Ověřit vyp vs „výchozí“:
+jestli se neztrácí slova tiššího vzdálenějšího člověka; potlačení šumu a ozvěny se posuzuje podle přepisu a mluvčích v
 bublinách, ne podle čísel v panelu; `language_hints_strict` tlačí cizí slova
 do češtiny. V klidné místnosti se rozdíl neprojeví.
 
@@ -141,8 +142,9 @@ socket when mic fails or Stop beats Start`.
 - **Odstranění bufferu `pendingChunksRef`** (bod 4): chrání začátek věty, když
   je mikrofon rychlejší než spojení; do neotevřeného socketu nejde posílat a
   mikrofon až po otevření spojení by přidal celé zpoždění spojení.
-- Stabilní štítky mluvčích po ořezu tokenů; hlasování o mluvčím po větách
-  (Soniox neposílá další id ani jistotu mluvčího).
+- Hlasování o mluvčím po větách (Soniox neposílá další id ani jistotu
+  mluvčího). Stabilní barvy mluvčích po ořezu tokenů jsou hotové (2026-10-11),
+  po testu v hospodě, kde přeházené barvy působily jako slévání mluvčích.
 
 ## Jak měřit
 
