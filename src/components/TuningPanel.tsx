@@ -131,7 +131,7 @@ export default function TuningPanel({
     .join(" · ");
 
   return (
-    <div className="flex w-full flex-col gap-2 rounded-md bg-glass-strong p-3 ring-1 ring-live/40">
+    <div className="flex w-full flex-col gap-2 rounded-(--dock-inner-radius) bg-glass-strong px-5 py-3.5 ring-1 ring-live/40">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}

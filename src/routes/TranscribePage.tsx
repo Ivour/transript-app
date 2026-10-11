@@ -116,7 +116,7 @@ export default function TranscribePage() {
 
       {isLowSignal && (
         <div className="pointer-events-none absolute inset-x-0 top-[calc(var(--safe-top)+--spacing(14))] z-10 flex justify-center">
-          <span className="glass inline-flex h-8 items-center gap-2 rounded-full px-3 text-footnote text-warn-ink">
+          <span className="glass relative inline-flex h-8 items-center gap-2 rounded-full px-3 text-footnote text-warn-ink">
             <Signal className="size-4" strokeWidth={2.4} />
             Slabý signál
           </span>
@@ -132,14 +132,14 @@ export default function TranscribePage() {
           "ll-feed flex h-full flex-col overflow-y-auto px-4 pt-[calc(var(--safe-top)+--spacing(25))]",
           // The test build's tuning panel makes the dock taller.
           isTest
-            ? "pb-[calc(var(--safe-bottom)+--spacing(75))]"
-            : "pb-[calc(var(--safe-bottom)+--spacing(40))]",
+            ? "pb-[calc(var(--safe-bottom)+--spacing(77))]"
+            : "pb-[calc(var(--safe-bottom)+--spacing(42))]",
         )}
       >
         <TranscriptView transcript={transcript} showSpeakerId={isTest} />
       </main>
 
-      <div className="glass absolute inset-x-3 bottom-(--dock-bottom) z-10 flex flex-col gap-2.5 rounded-xl p-3">
+      <div className="glass absolute inset-x-3 bottom-(--dock-bottom) z-10 flex flex-col gap-2.5 rounded-(--dock-radius) p-4">
         {(error || audioError) && (
           <p className="px-2 text-center text-footnote text-live">
             {audioError?.isPermissionDenied

@@ -23,19 +23,43 @@
 
 /* Liquid glass: only the floating header pills and the dock. Content
    (transcript cards) stays solid for legibility. A utility (not a
-   component class) so it sorts and composes like any other class. */
+   component class) so it sorts and composes like any other class.
+
+   The frosted surface lives on `::before`, not on the element itself, so
+   the icons/text are NOT inside the backdrop-filter layer: in the iOS
+   home-screen PWA, content of an element with `backdrop-filter` rendered
+   soft/blurry. No z-index on the pseudo-element (a stacking context could
+   become a "backdrop root" and change what gets blurred); instead the
+   direct children are positioned, so they paint after (above) `::before`.
+   The element must be positioned itself (`relative` / `absolute`). The
+   transparent border keeps the old box size; `::before` draws the real
+   edge over it. */
 @utility glass {
-  background-color: var(--glass);
-  border: 1px solid var(--glass-edge);
+  border: 1px solid transparent;
   box-shadow: var(--glass-shadow);
-  @apply backdrop-blur-glass backdrop-saturate-180;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border: 1px solid var(--glass-edge);
+    border-radius: inherit;
+    background-color: var(--glass);
+    pointer-events: none;
+    @apply backdrop-blur-glass backdrop-saturate-180;
+  }
+  & > * {
+    position: relative;
+  }
 
   /* Weak-signal mode: no blur, solid surface. Also the cheapest render
      path (backdrop blur over a scrolling list costs GPU/battery). */
   [data-signal="low"] & {
+    box-shadow: none;
+  }
+  [data-signal="low"] &::before {
     background-color: var(--surface-solid);
     border-color: var(--hairline);
-    box-shadow: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
@@ -53,6 +77,18 @@
     /* The dock sits well into the home-indicator area, like iOS docks
        (34px inset on iPhone 16 Pro -> 14px gap, just above the indicator). */
     --dock-bottom: max(calc(env(safe-area-inset-bottom) - 20px), 12px);
+    /* iPhone 16 Pro display corner radius (62pt; 15 Pro was 55pt). The
+       dock's corners are concentric with the screen corners: screen
+       radius minus the dock's side inset (`inset-x-3` = 12px), the way iOS
+       rounds its own floating bars. Same rule one level in: dock radius
+       minus the dock padding (`p-4` = 16px) is the radius for boxes inside
+       the dock, so every gap at a corner matches the gap along the edges
+       (the h-12 pills come out close to that too). iOS screens use a
+       continuous ("squircle") curve that Safari can't draw yet; a circular
+       arc of the same radius is visually close enough. */
+    --screen-radius: 62px;
+    --dock-radius: calc(var(--screen-radius) - 12px);
+    --dock-inner-radius: calc(var(--dock-radius) - 16px);
     background-color: var(--canvas);
     /* First layer: plain canvas under the status bar / Dynamic Island,
        fading out below it, so the top of the app runs seamlessly into the
