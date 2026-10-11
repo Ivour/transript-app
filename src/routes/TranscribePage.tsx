@@ -18,11 +18,9 @@ import {
 import { cn } from "../lib/cn";
 import { DEFAULT_TUNING, type TuningSettings } from "../lib/tuning";
 
-const isTest = import.meta.env.VITE_APP_ENV === "test";
-
 /** Round 48px dock button (theme, weak signal). */
 const roundButtonClassName =
-  "grid size-12 flex-none place-items-center rounded-full bg-glass-strong text-ink focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-focus disabled:opacity-50";
+  "grid size-12 flex-none place-items-center rounded-full bg-glass-strong text-ink focus-ring disabled:opacity-50";
 
 /**
  * Main screen: live diarized transcription. Composes
@@ -70,12 +68,12 @@ export default function TranscribePage() {
   );
   const canChangeAudioQualityMode = status === "idle" || status === "error";
 
-  // Test-build tuning panel values (session-only, never persisted). Prod
-  // always starts with DEFAULT_TUNING. Read synchronously in the tap handler.
+  // Tuning panel values (session-only, never persisted): every page load
+  // starts with DEFAULT_TUNING. Read synchronously in the tap handler.
   const [tuning, setTuning] = useState<TuningSettings>(DEFAULT_TUNING);
 
   const handleStart = () => {
-    void start(audioQualityMode, isTest ? tuning : DEFAULT_TUNING);
+    void start(audioQualityMode, tuning);
   };
 
   const mainContainerRef = useRef<HTMLElement | null>(null);
@@ -129,17 +127,12 @@ export default function TranscribePage() {
       {/* Cards sit at the bottom (TranscriptView's `mt-auto`) and scroll
           under the header and the dock; the padding keeps the newest card
           above the dock. */}
+      {/* Bottom padding = dock height incl. the closed tuning row. */}
       <main
         ref={mainContainerRef}
-        className={cn(
-          "ll-feed flex h-full flex-col overflow-y-auto px-4 pt-[calc(var(--safe-top)+--spacing(25))]",
-          // The test build's tuning panel makes the dock taller.
-          isTest
-            ? "pb-[calc(var(--safe-bottom)+--spacing(77))]"
-            : "pb-[calc(var(--safe-bottom)+--spacing(42))]",
-        )}
+        className="ll-feed flex h-full flex-col overflow-y-auto px-4 pt-[calc(var(--safe-top)+--spacing(25))] pb-[calc(var(--safe-bottom)+--spacing(57))]"
       >
-        <TranscriptView transcript={transcript} showSpeakerId={isTest} />
+        <TranscriptView transcript={transcript} showSpeakerId />
       </main>
 
       <div className="glass absolute inset-x-3 bottom-(--dock-bottom) z-10 flex flex-col gap-2.5 rounded-(--dock-radius) p-4">
@@ -151,15 +144,13 @@ export default function TranscribePage() {
           </p>
         )}
 
-        {isTest && (
-          <TuningPanel
-            tuning={tuning}
-            onChange={setTuning}
-            locked={!canChangeAudioQualityMode}
-            nativeSampleRate={nativeSampleRate}
-            latency={latency}
-          />
-        )}
+        <TuningPanel
+          tuning={tuning}
+          onChange={setTuning}
+          locked={!canChangeAudioQualityMode}
+          nativeSampleRate={nativeSampleRate}
+          latency={latency}
+        />
 
         <LevelFilter
           amount={noiseGateAmount}

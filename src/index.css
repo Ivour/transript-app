@@ -26,6 +26,7 @@
    component class) so it sorts and composes like any other class. */
 @utility glass {
   background-color: var(--glass);
+  background-image: var(--glass-sheen);
   border: 1px solid var(--glass-edge);
   box-shadow: var(--glass-shadow);
   @apply backdrop-blur-glass backdrop-saturate-180;
@@ -34,10 +35,19 @@
      path (backdrop blur over a scrolling list costs GPU/battery). */
   [data-signal="low"] & {
     background-color: var(--surface-solid);
+    background-image: none;
     border-color: var(--hairline);
     box-shadow: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+}
+
+/* The app's keyboard focus ring (buttons, links, the gate slider). */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
   }
 }
 
@@ -192,9 +202,5 @@
     border-radius: 9999px;
     background: var(--thumb);
     box-shadow: var(--thumb-shadow);
-  }
-  .ll-range:focus-visible {
-    outline: 3px solid var(--focus);
-    outline-offset: 3px;
   }
 }

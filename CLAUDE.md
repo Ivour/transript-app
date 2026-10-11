@@ -160,16 +160,16 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
   Od 2026-10-11 je vypnuté i `autoGainControl` (`MIC_AUTO_GAIN_CONTROL`,
   rozhodl uživatel): v pauzách by zesilovalo hluk a vedlejší stůl. Cena:
   tichý vzdálený hlas se nezesílí. Neověřeno v hlučném prostředí a s Rode,
-  k porovnání slouží testovací panel (viz níže, u AGC i „výchozí“ =
+  k porovnání slouží ladicí panel (viz níže, u AGC i „výchozí“ =
   prohlížeč).
-- **Testovací panel** (`TuningPanel`, `lib/tuning.ts`, jen když
-  `VITE_APP_ENV=test`): přepínače pro detekci konce promluvy, ozvěnu, šum,
+- **Ladicí panel** (`TuningPanel`, `lib/tuning.ts`; od 2026-10-11 ve všech
+  buildech, rozhodl uživatel, `VITE_APP_ENV` se už nečte): přepínače pro detekci konce promluvy, ozvěnu, šum,
   automatickou hlasitost a velikost chunku, plus diagnostika (vzorkování
   mikrofonu, surové ID mluvčího ze Sonioxu) a měření latence (slovo → text,
   slovo → finál, záseky, `lib/latencyStats.ts`; čísla zůstanou po Stopu na
   obrazovce). Hodnoty se čtou při Startu, neukládají se; mezi měřeními se
-  proto nic neobnovuje, stačí Stop, přepnout a znovu Start. Výchozí hodnoty
-  ostrého buildu jsou `DEFAULT_TUNING`.
+  proto nic neobnovuje, stačí Stop, přepnout a znovu Start. Každé načtení
+  stránky začíná s `DEFAULT_TUNING`.
 - Wake Lock se drží během přepisu (`useWakeLock`).
 
 ## Soniox session
@@ -265,8 +265,10 @@ tabulka jsou ve `VYLEPSENI.md`.
   `theme.css` (`@theme` statické hodnoty + `@theme inline` barvy). Barvy jen přes tokeny (`bg-canvas`,
   `text-ink`, `border-spk1-border`…), žádné `slate-*`. Motiv řídí
   `data-theme` na `<html>` (výchozí tmavý, `useTheme`), varianta `dark:`
-  na něj reaguje. Sklo (utilita `glass`) jen na hlavičce a docku; režim slabého
-  signálu (`data-signal="low"`) ho mění na plné pozadí. Vědomé odchylky od
+  na něj reaguje. Sklo (utilita `glass`) jen na hlavičce, docku a kartách na
+  Využití; bubliny přepisu zůstávají plné kvůli čitelnosti (průsvitné se
+  zkoušely 2026-10-11, rozdíl skoro nebyl vidět). Režim slabého signálu
+  (`data-signal="low"`) mění sklo na plné pozadí. Vědomé odchylky od
   `IMPLEMENT.md`: bez localStorage, bez „Ve frontě“ (appka nemá frontu
   textu), bez blikajícího kurzoru, nefinální text `ink-partial` (výraznější
   než `ink-muted`), výraznější okraje mluvčích, bez dělení karty na odstavce, slider filtru ukazuje dB na škále

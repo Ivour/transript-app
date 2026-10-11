@@ -44,7 +44,7 @@ export default function LevelFilter({
         <span className="ll-meter-level" />
         <input
           type="range"
-          className="ll-range"
+          className="ll-range focus-ring"
           min={0}
           max={100}
           step={1}

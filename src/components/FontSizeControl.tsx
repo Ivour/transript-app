@@ -1,11 +1,13 @@
-import { AArrowDown, AArrowUp } from "lucide-react";
 import { useFontSize } from "../hooks/useFontSize";
 
 const stepButtonClassName =
-  "grid h-10 w-11.5 place-items-center rounded-full text-ink disabled:opacity-35 focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-focus";
+  "grid h-10 w-11.5 place-items-center rounded-full text-ink disabled:opacity-35 focus-ring";
 
 /**
- * A− / A+ segment that resizes the transcript text (see `useFontSize`).
+ * Small "A" / big "A" segment that resizes the transcript text (see
+ * `useFontSize`). The iOS Safari / Books text-size pattern: the glyphs are
+ * text in the rounded brand font, not icons (the lucide A-with-arrow icons
+ * read as cluttered), so their size difference itself says smaller/bigger.
  * Deliberately self-contained: it owns the font size state itself, so a
  * tap only re-renders this control, not `TranscribePage`/`TranscriptView`
  * (see `useFontSize` doc comment for the rationale).
@@ -27,7 +29,9 @@ export default function FontSizeControl() {
         aria-label="Zmenšit písmo přepisu"
         className={stepButtonClassName}
       >
-        <AArrowDown className="size-5.5" />
+        <span aria-hidden className="font-rounded text-[15px]/none font-semibold">
+          A
+        </span>
       </button>
       <span className="h-5 w-px bg-hairline" />
       <button
@@ -37,7 +41,9 @@ export default function FontSizeControl() {
         aria-label="Zvětšit písmo přepisu"
         className={stepButtonClassName}
       >
-        <AArrowUp className="size-5.5" />
+        <span aria-hidden className="font-rounded text-[23px]/none font-semibold">
+          A
+        </span>
       </button>
     </div>
   );

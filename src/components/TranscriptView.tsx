@@ -72,7 +72,7 @@ function TranscriptView({
           >
             <p>
               {showSpeakerId && segment.speakerId && (
-                <span className="mr-2 align-middle text-[10px] text-ink-muted select-none">
+                <span className="mr-2 align-middle text-caption2 text-ink-muted select-none">
                   id {segment.speakerId}
                 </span>
               )}

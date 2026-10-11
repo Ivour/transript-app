@@ -50,17 +50,27 @@
   --spk4-border: rgb(255 143 163 / 0.72);
   --glass-shadow:
     0 10px 36px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.12);
+  /* Extra light-reflection layer on `glass`; the dark theme reads as
+     glass without it. */
+  --glass-sheen: none;
   --thumb-shadow: 0 2px 6px rgb(0 0 0 / 0.28);
 }
 
 [data-theme="light"] {
   color-scheme: light;
   --canvas: #eef1f3;
-  --glow-mint: #d6f3ea;
-  --glow-blue: #dde6f7;
-  --glow-warm: #f6eadc;
-  --glass: rgb(255 255 255 / 0.62);
-  --glass-strong: rgb(255 255 255 / 0.8);
+  /* Glows much more saturated than the design (#d6f3ea, #dde6f7,
+     #f6eadc). The dark theme's dock looks good because the glows differ a
+     lot from the canvas, so the frosted glass shows a warm-to-blue blend;
+     the design's light pastels were nearly white and the white glass
+     washed out what was left. */
+  --glow-mint: #b6ecd9;
+  --glow-blue: #bccff6;
+  --glow-warm: #f7d2a6;
+  /* Much more transparent than the design (0.62 / 0.8) for the same
+     reason: let the blurred color through. */
+  --glass: rgb(255 255 255 / 0.32);
+  --glass-strong: rgb(255 255 255 / 0.5);
   --glass-edge: rgb(255 255 255 / 0.85);
   --surface-solid: #f9fafb;
   --card-bg: #ffffff;
@@ -85,7 +95,16 @@
   --spk2-border: rgb(47 111 214 / 0.7);
   --spk3-border: rgb(123 92 224 / 0.7);
   --spk4-border: rgb(210 69 107 / 0.7);
+  /* Thin dark outline (the white edge alone vanishes on the pale canvas),
+     bright top rim and a faint bottom shade = the thickness of the glass. */
   --glass-shadow:
-    0 8px 32px rgb(10 40 45 / 0.14), inset 0 1px 0 rgb(255 255 255 / 0.8);
+    0 8px 32px rgb(10 40 45 / 0.14), 0 0 0 0.5px rgb(10 30 36 / 0.1),
+    inset 0 1px 0 rgb(255 255 255 / 0.95),
+    inset 0 -1px 0 rgb(10 30 36 / 0.05);
+  --glass-sheen: linear-gradient(
+    to bottom,
+    rgb(255 255 255 / 0.4),
+    rgb(255 255 255 / 0) 45%
+  );
   --thumb-shadow: 0 2px 6px rgb(0 0 0 / 0.28);
 }

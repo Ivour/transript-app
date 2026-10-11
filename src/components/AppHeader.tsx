@@ -7,7 +7,7 @@ interface AppHeaderProps {
 }
 
 const iconButtonClassName =
-  "grid size-11 place-items-center rounded-full text-ink focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-focus";
+  "grid size-11 place-items-center rounded-full text-ink focus-ring";
 
 /**
  * Floating header over the transcript: brand pill on the left, usage /

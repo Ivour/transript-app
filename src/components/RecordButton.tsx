@@ -35,7 +35,7 @@ export default function RecordButton({
       disabled={isConnecting || status === "stopping"}
       className={cn(
         "flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-full text-[17px]/6 font-semibold transition-transform active:scale-[.98]",
-        "focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-focus",
+        "focus-ring",
         "disabled:cursor-not-allowed disabled:opacity-70",
         isActive ? "bg-live text-on-live" : "bg-brand text-on-brand",
       )}

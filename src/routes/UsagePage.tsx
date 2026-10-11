@@ -3,14 +3,11 @@ import { Link } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import {
   ArrowLeft,
   RefreshCw,
-  BarChart2,
   AlertCircle,
-  Calendar,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -26,6 +23,17 @@ const CZECH_MONTHS = [
   "Leden", "Únor", "Březen", "Duben", "Květen", "Červen",
   "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"
 ];
+
+/** 44px icon button inside a glass header pill (same as AppHeader). */
+const headerIconClassName =
+  "grid size-11 place-items-center rounded-full text-ink focus-ring disabled:opacity-50";
+
+/** 40px round stepper button (month / page switching). */
+const stepButtonClassName =
+  "grid size-10 flex-none place-items-center rounded-full bg-glass-strong text-ink focus-ring disabled:opacity-35";
+
+const sectionLabelClassName =
+  "text-caption font-semibold uppercase tracking-wider text-ink-muted";
 
 export default function UsagePage() {
   const { user } = useAuth();
@@ -170,220 +178,233 @@ export default function UsagePage() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col bg-canvas pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-ink">
-      {/* Top Header */}
-      <header className="sticky top-[env(safe-area-inset-top)] z-10 flex items-center justify-between border-b border-hairline bg-card-bg px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Link to="/">
-            <Button variant="ghost" size="icon-sm" aria-label="Zpět na nahrávání">
-              <ArrowLeft className="size-4 text-ink-muted" />
-            </Button>
+    // Same shell as TranscribePage: ambient glow background, floating glass
+    // header, content scrolling under its fade (`ll-feed` mask).
+    <div className="ll-app fixed inset-0 overflow-hidden text-ink">
+      <header className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-4 pt-(--safe-top) pb-3">
+        <div className="ll-header-fade" />
+        <div className="glass flex h-11 items-center gap-1 rounded-full pr-4 pl-0.5">
+          <Link
+            to="/"
+            aria-label="Zpět na přepis"
+            title="Zpět na přepis"
+            className={headerIconClassName}
+          >
+            <ArrowLeft className="size-5.5" strokeWidth={2.4} />
           </Link>
-          <span className="text-sm font-semibold text-ink">Moje využití</span>
+          <span className="font-rounded text-title text-ink">
+            Využití
+          </span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={handleRefresh}
-          disabled={isLoading || isRefetching}
-          aria-label="Obnovit"
-        >
-          <RefreshCw className={cn("size-4 text-ink-muted", isRefetching && "animate-spin")} />
-        </Button>
+        <div className="glass flex h-11 items-center rounded-full px-0.5">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isLoading || isRefetching}
+            aria-label="Obnovit"
+            title="Obnovit"
+            className={headerIconClassName}
+          >
+            <RefreshCw
+              className={cn("size-5.5", isRefetching && "animate-spin")}
+            />
+          </button>
+        </div>
       </header>
 
-      <main className="flex-1 p-4 max-w-lg mx-auto w-full space-y-6 pb-20">
-        {/* User Info Bar */}
-        <div className="text-xs text-ink-muted text-center">
-          Uživatel: <span className="font-medium text-ink">{user?.email}</span>
-        </div>
-
-        {/* Dynamic Month Selector / Tab Selector switcher */}
-        <div className="rounded-md border border-hairline bg-card-bg p-4 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider flex items-center gap-1.5">
-              <Calendar className="size-4 text-ink-muted" />
-              Období
-            </span>
-            <div className="flex gap-1.5 bg-glass-strong rounded-sm p-0.5">
-              <button
-                onClick={() => setViewMode("monthly")}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
-                  viewMode === "monthly"
-                    ? "bg-card-bg text-ink shadow-sm ring-1 ring-hairline"
-                    : "text-ink-muted hover:text-ink"
-                )}
-              >
-                Měsíční
-              </button>
-              <button
-                onClick={() => setViewMode("all-time")}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
-                  viewMode === "all-time"
-                    ? "bg-card-bg text-ink shadow-sm ring-1 ring-hairline"
-                    : "text-ink-muted hover:text-ink"
-                )}
-              >
-                Celkově
-              </button>
+      <main className="ll-feed h-full overflow-y-auto px-4 pt-[calc(var(--safe-top)+--spacing(22))] pb-[calc(var(--safe-bottom)+--spacing(6))]">
+        <div className="mx-auto flex w-full max-w-lg flex-col gap-3">
+          {/* Period: monthly / all-time switch + month stepper */}
+          <section className="glass flex flex-col gap-3 rounded-lg p-4">
+            <div
+              className="grid grid-cols-2 rounded-full bg-glass-strong p-1"
+              role="group"
+              aria-label="Období"
+            >
+              {(
+                [
+                  ["monthly", "Měsíčně"],
+                  ["all-time", "Celkově"],
+                ] as const
+              ).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setViewMode(mode);
+                    setPage(1);
+                  }}
+                  aria-pressed={viewMode === mode}
+                  className={cn(
+                    "h-9 rounded-full text-callout transition-colors",
+                    viewMode === mode
+                      ? "bg-brand text-on-brand"
+                      : "text-ink-muted",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
+
+            {viewMode === "monthly" && (
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePrevMonth();
+                    setPage(1);
+                  }}
+                  disabled={isPrevDisabled}
+                  aria-label="Předchozí měsíc"
+                  className={stepButtonClassName}
+                >
+                  <ChevronLeft className="size-5" />
+                </button>
+                <span className="font-rounded text-title font-semibold text-ink">
+                  {formatMonthLabel(selectedMonthKey)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleNextMonth();
+                    setPage(1);
+                  }}
+                  disabled={isNextDisabled}
+                  aria-label="Následující měsíc"
+                  className={stepButtonClassName}
+                >
+                  <ChevronRight className="size-5" />
+                </button>
+              </div>
+            )}
+          </section>
+
+          {/* Totals */}
+          <div className="grid grid-cols-2 gap-3">
+            <section className="glass flex flex-col gap-1 rounded-lg p-4">
+              <span className={sectionLabelClassName}>Čas</span>
+              <div className="flex items-baseline gap-1">
+                <span className="font-rounded text-stat tracking-tight text-ink tabular-nums">
+                  {stats.activeMinutes.toFixed(1).replace(".", ",")}
+                </span>
+                <span className="text-footnote text-ink-muted">min</span>
+              </div>
+              {viewMode !== "all-time" && sessions.length > 0 && (
+                <span className="text-caption text-ink-muted tabular-nums">
+                  celkem {stats.totalMinutes.toFixed(1).replace(".", ",")} min
+                </span>
+              )}
+            </section>
+
+            <section className="glass flex flex-col gap-1 rounded-lg p-4">
+              <span className={sectionLabelClassName}>Cena (odhad)</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-footnote text-ink-muted">$</span>
+                <span className="font-rounded text-stat tracking-tight text-ink tabular-nums">
+                  {stats.activeCost.toFixed(3)}
+                </span>
+              </div>
+              {viewMode !== "all-time" && sessions.length > 0 && (
+                <span className="text-caption text-ink-muted tabular-nums">
+                  celkem ${stats.totalCost.toFixed(3)}
+                </span>
+              )}
+            </section>
           </div>
 
-          {/* Interactive chevron Month Switcher se šipkami under Monthly Mode */}
-          {viewMode === "monthly" && (
-            <div className="flex items-center justify-between border-t border-hairline pt-3 mt-1">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={handlePrevMonth}
-                disabled={isPrevDisabled}
-                aria-label="Předchozí měsíc"
-              >
-                <ChevronLeft className="size-4 text-ink-muted" />
-              </Button>
-              
-              <span className="text-sm font-bold text-ink tracking-tight text-center min-w-[140px]">
-                {formatMonthLabel(selectedMonthKey)}
-              </span>
-
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={handleNextMonth}
-                disabled={isNextDisabled}
-                aria-label="Následující měsíc"
-              >
-                <ChevronRight className="size-4 text-ink-muted" />
-              </Button>
+          {isLoading && (
+            <div className="flex justify-center py-8">
+              <RefreshCw className="size-6 animate-spin text-ink-muted" />
             </div>
           )}
-        </div>
 
-        {/* Totals Widgets cards */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-md border border-hairline bg-card-bg p-4 shadow-sm flex flex-col justify-between">
-            <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider">
-              {viewMode === "all-time" ? "Celkový čas" : "Čas v období"}
-            </span>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-2xl font-bold tracking-tight text-ink">
-                {stats.activeMinutes.toFixed(1)}
-              </span>
-              <span className="text-xs font-medium text-ink-muted">minuty</span>
-            </div>
-            {viewMode !== "all-time" && sessions.length > 0 && (
-              <span className="text-[10px] text-ink-muted mt-1">Celkově: {stats.totalMinutes.toFixed(1)} min</span>
-            )}
-          </div>
-
-          <div className="rounded-md border border-hairline bg-card-bg p-4 shadow-sm flex flex-col justify-between">
-            <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider">
-              {viewMode === "all-time" ? "Celková cena" : "Cena v období"}
-            </span>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-xs font-medium text-ink-muted">$</span>
-              <span className="text-2xl font-bold tracking-tight text-ink">
-                {stats.activeCost.toFixed(4)}
-              </span>
-              <span className="text-xs font-medium text-ink-muted">USD</span>
-            </div>
-            {viewMode !== "all-time" && sessions.length > 0 && (
-              <span className="text-[10px] text-ink-muted mt-1">Celkově: ${stats.totalCost.toFixed(4)}</span>
-            )}
-          </div>
-        </div>
-
-        {/* Loading and Error States */}
-        {isLoading && (
-          <div className="flex justify-center py-8">
-            <RefreshCw className="animate-spin text-ink-muted size-6" />
-          </div>
-        )}
-
-        {error && (
-          <div className="rounded-sm bg-live/10 p-3 ring-1 ring-live/30 text-live text-sm flex items-center gap-2">
-            <AlertCircle className="size-4 shrink-0" />
-            <span>{(error as Error).message || "Nepodařilo se načíst statistiky využití."}</span>
-          </div>
-        )}
-
-        {/* Usage Logs section */}
-        {!isLoading && !error && (
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-ink flex items-center gap-1.5 px-1">
-              <BarChart2 className="size-4 text-ink-muted" />
+          {error && (
+            <div className="glass flex items-center gap-2 rounded-lg p-4 text-callout text-live">
+              <AlertCircle className="size-5 shrink-0" />
               <span>
-                {viewMode === "all-time" ? "Celá historie spojení" : "Historie spojení v období"}
+                {(error as Error).message ||
+                  "Nepodařilo se načíst statistiky využití."}
               </span>
-              <span className="ml-auto rounded-full bg-glass-strong px-2 py-0.5 text-xs text-ink-muted font-normal">
-                {filteredSessions.length} / {sessions.length}
-              </span>
-            </h2>
+            </div>
+          )}
 
-            {filteredSessions.length === 0 ? (
-              <div className="rounded-md border border-dashed border-hairline bg-card-bg/50 py-10 text-center">
-                <p className="text-sm text-ink-muted">Dosud nebyly zaznamenány žádné přepisy.</p>
-              </div>
-            ) : (
-              <div className="overflow-hidden rounded-md border border-hairline bg-card-bg shadow-sm">
-                <div className="divide-y divide-hairline pprev-list">
-                  {paginatedSessions.map((session) => (
-                    <div
-                      key={session.id}
-                      className="flex items-center justify-between p-3.5 hover:bg-glass-strong transition-colors"
-                    >
-                      <div className="space-y-0.5">
-                        <p className="text-xs font-medium text-ink-muted">
-                          {formatDateTime(session.created_at)}
-                        </p>
-                        <p className="text-sm font-semibold text-ink">
-                          {formatDuration(session.duration_seconds)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xs font-semibold uppercase text-ink-muted tracking-wider">
-                          Cena:
-                        </span>
-                        <p className="text-sm font-semibold text-ink">
-                          ${session.cost_usd ? Number(session.cost_usd).toFixed(5) : "0.00000"}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+          {/* Session log */}
+          {!isLoading && !error && (
+            <section className="flex flex-col gap-2">
+              <h2 className="mt-2 flex items-center justify-between px-2">
+                <span className={sectionLabelClassName}>Spojení</span>
+                <span className="text-footnote text-ink-muted tabular-nums">
+                  {filteredSessions.length}
+                  {viewMode === "monthly" && ` z ${sessions.length}`}
+                </span>
+              </h2>
+
+              {filteredSessions.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-hairline py-10 text-center text-callout text-ink-muted">
+                  Žádné přepisy v tomto období.
                 </div>
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between border-t border-hairline px-3.5 py-3">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => setPage((prev: number) => Math.max(prev - 1, 1))}
-                      disabled={page === 1}
-                      aria-label="Předchozí stránka"
-                    >
-                      <ChevronLeft className="size-4 text-ink-muted" />
-                    </Button>
+              ) : (
+                <div className="glass overflow-hidden rounded-lg">
+                  <ul className="divide-y divide-hairline">
+                    {paginatedSessions.map((session) => (
+                      <li
+                        key={session.id}
+                        className="flex items-center justify-between gap-3 px-4 py-3"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-callout font-semibold text-ink tabular-nums">
+                            {formatDuration(session.duration_seconds)}
+                          </span>
+                          <span className="text-footnote text-ink-muted tabular-nums">
+                            {formatDateTime(session.created_at)}
+                          </span>
+                        </div>
+                        <span className="text-callout text-ink-partial tabular-nums">
+                          $
+                          {session.cost_usd
+                            ? Number(session.cost_usd).toFixed(4)
+                            : "0.0000"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between border-t border-hairline px-3 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={page === 1}
+                        aria-label="Předchozí stránka"
+                        className={stepButtonClassName}
+                      >
+                        <ChevronLeft className="size-5" />
+                      </button>
+                      <span className="text-footnote text-ink-muted tabular-nums">
+                        Stránka {page} z {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPage((prev) => Math.min(prev + 1, totalPages))
+                        }
+                        disabled={page === totalPages}
+                        aria-label="Následující stránka"
+                        className={stepButtonClassName}
+                      >
+                        <ChevronRight className="size-5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
 
-                    <span className="text-sm font-bold text-ink tracking-tight">
-                      Stránka {page} z {totalPages}
-                    </span>
-
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => setPage((prev: number) => Math.min(prev + 1, totalPages))}
-                      disabled={page === totalPages}
-                      aria-label="Následující stránka"
-                    >
-                      <ChevronRight className="size-4 text-ink-muted" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+          <p className="mt-2 text-center text-caption text-ink-muted">
+            {user?.email}
+          </p>
+        </div>
       </main>
     </div>
   );

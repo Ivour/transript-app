@@ -1,7 +1,7 @@
 /**
  * Settings that change how a session is captured and transcribed. Defaults
- * are what production uses. The test build (`VITE_APP_ENV=test`) lets the
- * user change them in `TuningPanel` to find out by ear/eye what works best.
+ * are what every session starts with; `TuningPanel` (shown in all builds
+ * for now) lets the user change them to find out by ear/eye what works best.
  * Everything is read once at the tap on Start and baked into the session
  * (getUserMedia, worklet, Soniox config), so it cannot change mid-session.
  * Never persisted (see CLAUDE.md).

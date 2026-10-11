@@ -39,6 +39,18 @@
   --text-footnote: 13px;
   --text-footnote--line-height: 18px;
   --text-footnote--font-weight: 500;
+  /* Additions beyond the design's scale, for denser screens (usage, the
+     tuning panel). No weight on the small ones: they mix regular/semibold. */
+  --text-title: 19px;
+  --text-title--line-height: 24px;
+  --text-title--font-weight: 700;
+  --text-stat: 32px;
+  --text-stat--line-height: 40px;
+  --text-stat--font-weight: 700;
+  --text-caption: 11px;
+  --text-caption--line-height: 15px;
+  --text-caption2: 10px;
+  --text-caption2--line-height: 13px;
 }
 
 @theme inline {

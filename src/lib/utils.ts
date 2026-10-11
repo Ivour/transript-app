@@ -10,7 +10,16 @@ import { extendTailwindMerge } from "tailwind-merge";
 const twMerge = extendTailwindMerge({
   extend: {
     theme: {
-      text: ["wordmark", "empty-title", "callout", "footnote"],
+      text: [
+        "wordmark",
+        "empty-title",
+        "callout",
+        "footnote",
+        "title",
+        "stat",
+        "caption",
+        "caption2",
+      ],
     },
   },
 });
