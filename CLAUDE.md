@@ -49,9 +49,14 @@ Uživatel je React vývojář (medior), **audio a zpracování signálu nezná**
 - **16 kHz mono `pcm_s16le` stačí.** Nezvyšovat vzorkování ani bitrate,
   spotřeba dat je už teď dost vysoká. Režim slabého signálu = 8 kHz μ-law.
 - **Žádný auto-reconnect.** Při pádu spojení se session ukončí chybou.
-- **EU server Sonioxu se neřeší.** Přínos nejde ověřit (US i EU hostitel jsou
-  za Cloudflare, měří se jen cesta k hraně) a latence je hlavně doba
-  rozpoznávání. Neotevírat znovu bez nového důvodu.
+- **Soniox běží na EU serveru, bez US zálohy** (od 2026-10-12). EU region
+  povolil Soniox na žádost, klíč je z EU projektu (oprávnění jen
+  Speech-to-text real-time + Temporary API keys). Klíč, API doména
+  (`api.eu.soniox.com` v `soniox-token`) a WebSocket
+  (`stt-rt.eu.soniox.com` v `lib/soniox.ts`) musí být ze stejného regionu,
+  jinak 401. Důvod: odpověď serveru na neplatný klíč z Prahy US ~125 ms, EU
+  ~50 ms (dřívější měření vidělo jen hranu Cloudflare). Čeká na ověření
+  latence na iPhonu.
 - **Detekce konce promluvy zůstává vypnutá** a ruční/periodický `finalize` se
   nepřidává (zhoršují diarizaci, s kterou je uživatel spokojený).
 - **Dohrání konce poslední věty při Stopu se neřeší** (čekání na `finished`).
@@ -99,7 +104,7 @@ s falešnými časovači.
 ## Klíče a Supabase
 
 - **Trvalý Soniox klíč nikdy v kódu prohlížeče.** Žije jen jako secret
-  Supabase (`SONIOX_API_KEY`). `VITE_*` proměnné jsou veřejné: smí tam být jen
+  Supabase (`SONIOX_API_KEY`, z EU projektu). `VITE_*` proměnné jsou veřejné: smí tam být jen
   `VITE_SUPABASE_URL` a `VITE_SUPABASE_ANON_KEY`.
 - `.env.local` je mimo git. Neotevírej ho a nevypisuj hodnoty (kdyby bylo
   potřeba, jen názvy proměnných).
@@ -232,6 +237,8 @@ Podrobnosti, zdůvodnění a výsledky měření jsou ve `VYLEPSENI.md`.
    uprostřed promptu může po povolení ukázat zbytečnou chybu mikrofonu.
 4. Návrh commitu pro uživatele: `fix: close Soniox socket when mic fails or
    Stop beats Start`.
+5. **EU server (2026-10-12):** po nasazení změřit „slovo → text“ v panelu
+   stejným textem proti 610 / 672 ms (`VYLEPSENI.md`, bod 13).
 
 ## Naměřená latence (test build, 2026-10)
 
@@ -240,10 +247,16 @@ tabulka jsou ve `VYLEPSENI.md`.
 
 - **První text: ~610 ms (p90 ~670 ms), „zčernání“ ~4,7 s (p90 ~5,1 s), záseky
   0.** 5G data jsou o ~70 ms pomalejší. Dlouhá session se nezhoršuje.
-- Odhad složení 610 ms: naše aplikace ~50–70 ms, síť ~100–200 ms, zbytek
-  (~350–450 ms) rozpoznávání u Sonioxu. Aplikace do latence přidává málo,
+- Odhad složení 610 ms (US server): naše aplikace ~50–70 ms (vč. čekání na
+  doplnění chunku), síť k serveru a zpět ~125 ms (změřeno 2026-10-12),
+  zbytek (~400 ms) rozpoznávání u Sonioxu. Aplikace do latence přidává málo,
   **v audio pipeline ani v Reactu není co zrychlit**. Rozhodovat podle
-  dalších čísel z panelu, ne podle dojmu.
+  dalších čísel z panelu, ne podle dojmu. EU server by měl ubrat ~75 ms
+  (očekávání ~535 ms), neověřeno.
+- Benchmark Sonioxu (soniox.com/benchmarks, ~260 ms) měří něco jiného: konec
+  promluvy → **finální** text v hlasovém agentovi, kde lokální VAD po 200 ms
+  ticha pošle `finalize`. Pro nás to je zamítnutý ruční `finalize` a
+  uprostřed souvislé řeči by nepomohl.
 - Velikost chunku nic nezlepšila (20 ms a 100 ms vyšlo o 60–70 ms *hůř* než
   60 ms, nejspíš šum měření) → nechat 60 ms.
 - Čísla v panelu: „Soniox zaostává“ je podezřele nízké (nestavět na něm);

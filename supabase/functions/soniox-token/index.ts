@@ -9,13 +9,18 @@
 // an authenticated (i.e. the single allowed) user.
 //
 // Secrets required (set via `supabase secrets set SONIOX_API_KEY=...`):
-//   SONIOX_API_KEY — permanent Soniox API key. NOT set yet at the time of
-//   writing this function — see TODO below.
+//   SONIOX_API_KEY — permanent Soniox API key from the **EU project**. It
+//   only needs the "Speech-to-text, real-time" and "Temporary API keys"
+//   permissions. A key from a US project gets 401 from the EU domain.
 
 import { corsHeaders } from "../_shared/cors.ts";
 
+// EU region (data residency): the key, this domain and the WebSocket URL in
+// `src/lib/soniox.ts` must all belong to the same region. EU was measured
+// ~75 ms faster per round trip from Prague than the default US host
+// (2026-10-12), which is a direct cut of the word -> first text latency.
 const SONIOX_TEMPORARY_KEY_URL =
-  "https://api.soniox.com/v1/auth/temporary-api-key";
+  "https://api.eu.soniox.com/v1/auth/temporary-api-key";
 
 /**
  * How long the minted temporary key stays valid, in seconds. The frontend

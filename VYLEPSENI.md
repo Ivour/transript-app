@@ -13,7 +13,8 @@ nápadů. Parametry Sonioxu před změnou ověř v dokumentaci.
 | Měření v hluku / s Rode (situace E) a A/B potlačení šumu, ozvěny, AGC | **Chybí** (bod 7) |
 | Latence (první text 610 ms, zčernání 4,7 s) | Změřeno, v aplikaci není co zrychlit |
 | Hlavní vlákno, Blob URL pro worklet, indikátor spojení | Odloženo (body 3, 4, 12) |
-| EU server, ruční `finalize`, konec věty při Stopu, statistiky, odstranění bufferu | Rozhodnuto nedělat (viz dole) |
+| EU server Sonioxu (bez US zálohy) | **Kód hotový 2026-10-12, čeká na nasazení a měření na iPhonu** (bod 13) |
+| Ruční `finalize`, konec věty při Stopu, statistiky, odstranění bufferu | Rozhodnuto nedělat (viz dole) |
 
 ## Výsledky měření (2026-10-10)
 
@@ -125,13 +126,36 @@ ukázat zbytečnou chybu mikrofonu (`useAudioCapture` nemá zrušení rozběhnut
 startu). Socket se přitom správně zavře. Návrh commitu: `fix: close Soniox
 socket when mic fails or Stop beats Start`.
 
+## Bod 13: EU server Sonioxu (kód 2026-10-12, čeká na ověření)
+
+Dřívější měření (TCP/TLS) vidělo jen hranu Cloudflare, za kterou jsou US i EU
+hostitel. Nově: WebSocket s neplatným klíčem, čas od odeslání konfigurace do
+odpovědi 401, kterou posílá až server Sonioxu (devcontainer, Vodafone Praha,
+6 pokusů na hostitele):
+
+| Hostitel | odpověď serveru (tam a zpět) |
+|---|---|
+| `stt-rt.soniox.com` (US) | 118–150 ms, medián ~125 ms |
+| `stt-rt.eu.soniox.com` (EU) | 38–63 ms, medián ~50 ms |
+
+Zvuk jde na server a text zpět, takže rozdíl (~75 ms) se přímo odečte od
+„slovo → text“. Zbylých ~400 ms je rozpoznání modelem (musí slyšet kus zvuku
+za slovem) a žádný parametr ho nezkrátí. Benchmark na soniox.com/benchmarks
+(~260 ms) měří konec promluvy → finální text s `finalize` po 200 ms ticha
+(Pipecat), tedy jinou situaci.
+
+Co se změnilo: `soniox-token` bere dočasný klíč z `api.eu.soniox.com`,
+appka se připojuje na `stt-rt.eu.soniox.com`. Secret `SONIOX_API_KEY` musí
+obsahovat klíč z EU projektu (oprávnění Speech-to-text real-time + Temporary
+API keys). US záloha není (rozhodl uživatel). Regiony se nesmí míchat (401).
+
+**Postup zkoušky na iPhonu:** po nasazení appku znovu načíst; Start → text a
+mluvčí fungují jako dřív; v Soniox Console je využití v EU projektu. Pak
+panel: stejný čtený text ~1 min, „slovo → text“ proti 610 / 672 ms (situace
+A). Očekávání ~535 ms. Zčernání a spojení by se zhoršit neměly.
+
 ## Rozhodnuto nedělat (neotevírat bez nového důvodu)
 
-- **EU server Sonioxu** (`stt-rt.eu.soniox.com`, vyžaduje EU projekt a žádost na
-  support@soniox.com). Původní odhad úspory 100–150 ms je neověřitelný: US i EU
-  hostitel jsou za Cloudflare (104.18.x.x), z devcontaineru se měří jen cesta k
-  hraně (~60–100 ms US, 75–230 ms EU), ne k původnímu serveru. 610 ms je
-  hlavně doba rozpoznávání.
 - **Ruční / periodický `finalize` a zapnutí detekce konce promluvy** (bod 6):
   podle dokumentace zhoršují diarizaci, s kterou je uživatel spokojený.
 - **Dohrání konce poslední věty při Stopu** (bod 9; stačilo by poslat prázdný

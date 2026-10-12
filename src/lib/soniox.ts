@@ -12,8 +12,15 @@ import { supabase } from "./supabase";
 
 // --- Constants ---------------------------------------------------------
 
+/**
+ * EU region endpoint. Must match the region of the temporary key, which the
+ * `soniox-token` Edge Function mints from the EU API domain with an EU
+ * project key; mixing regions is rejected with 401. EU over the default US
+ * host: ~50 vs ~125 ms server round trip from Prague (2026-10-12), and the
+ * recorded audio stays in the EU.
+ */
 export const SONIOX_WEBSOCKET_URL =
-  "wss://stt-rt.soniox.com/transcribe-websocket";
+  "wss://stt-rt.eu.soniox.com/transcribe-websocket";
 
 /**
  * Default audio format/sample rate the browser sends — must match the
