@@ -8,6 +8,7 @@ import {
   ENDPOINT_DELAY_MAX_MS,
   ENDPOINT_DELAY_MIN_MS,
   DEFAULT_TUNING,
+  SONIOX_MODELS,
   type TuningSettings,
 } from "../lib/tuning";
 import type { LatencySnapshot, LatencySummary } from "../lib/latencyStats";
@@ -188,6 +189,7 @@ export default function TuningPanel({
     .some((key) => tuning[key] !== DEFAULT_TUNING[key]);
 
   const summary = [
+    tuning.model.replace("stt-rt-", ""),
     `konec promluvy ${tuning.endpointDetection ? "zap" : "vyp"}`,
     `ozvěna ${onOff(tuning.echoCancellation)}`,
     `šum ${onOff(tuning.noiseSuppression)}`,
@@ -343,6 +345,23 @@ export default function TuningPanel({
                 ]}
                 value={tuning.autoGainControl}
                 onChange={(next) => update({ autoGainControl: next })}
+                disabled={locked}
+              />
+            </Row>
+          </Section>
+
+          <Section title="Soniox">
+            <Row
+              label="Model"
+              hint="v6 je novější (lepší přesnost a rozlišení mluvčích v dlouhých rozhovorech), ale v Arcu vycházel pomaleji (~900 ms proti ~570 ms). Porovnej „slovo → text“ stejným textem. v5 Soniox vypne 15. 12. 2026, pak běží vždy v6."
+            >
+              <Choice
+                options={SONIOX_MODELS.map((model) => ({
+                  value: model,
+                  label: model.replace("stt-rt-", ""),
+                }))}
+                value={tuning.model}
+                onChange={(next) => update({ model: next })}
                 disabled={locked}
               />
             </Row>

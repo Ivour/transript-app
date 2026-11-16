@@ -14,6 +14,7 @@ nápadů. Parametry Sonioxu před změnou ověř v dokumentaci.
 | Latence (první text 610 ms, zčernání 4,7 s) | Změřeno, v aplikaci není co zrychlit |
 | Hlavní vlákno, Blob URL pro worklet, indikátor spojení | Odloženo (body 3, 4, 12) |
 | EU server Sonioxu (bez US zálohy) | **Kód hotový 2026-10-12, čeká na nasazení a měření na iPhonu** (bod 13) |
+| Model Sonioxu `stt-rt-v6` | **v Arcu ~900 ms proti ~570 ms na v5; výchozí zpět v5, v6 přepínačem v panelu, čeká na měření na iPhonu** (bod 14) |
 | Ruční `finalize`, konec věty při Stopu, statistiky, odstranění bufferu | Rozhodnuto nedělat (viz dole) |
 
 ## Výsledky měření (2026-10-10)
@@ -153,6 +154,45 @@ API keys). US záloha není (rozhodl uživatel). Regiony se nesmí míchat (401)
 mluvčí fungují jako dřív; v Soniox Console je využití v EU projektu. Pak
 panel: stejný čtený text ~1 min, „slovo → text“ proti 610 / 672 ms (situace
 A). Očekávání ~535 ms. Zčernání a spojení by se zhoršit neměly.
+
+## Bod 14: model `stt-rt-v6` (kód 2026-11-16, čeká na ověření)
+
+Soniox vydal 2026-11-03 `stt-rt-v6`. API je stejné jako u v5, mění se jen
+název modelu (`SONIOX_MODEL` v `useSonioxTranscription.ts`). v5 se vypne
+2026-12-15 a požadavky na něj se pak samy přesměrují na v6; návrat na v5 je
+do té doby jeden řádek. Supabase funkce ani klíč se nemění.
+
+Soniox uvádí vyšší přesnost, lepší diarizaci v dlouhých rozhovorech a
+„rychlejší diktování“. Číslo pro první (nefinální) text nezveřejnil, takže
+jestli je v6 rychlejší, ukáže až měření. v6 píše ceny a kódy tak, jak zazní
+(„15 dolarů 20 centů“ slovy, pomlčky v kódech jen když zazní).
+
+Dokumentace prošlá 2026-11-16 (reference WebSocket API, real-time přepis,
+konec promluvy, `finalize`, diarizace): **žádný parametr nezkracuje dobu do
+prvního textu.** Z ~570 ms vzniká odhadem 450–500 ms v modelu: „Soniox
+zaostává“ je 0–120 ms, tedy zvuk zpracuje skoro hned, ale nejnovější slovo v
+odpovědi končí zhruba půl sekundy před koncem zpracovaného zvuku. Naměřené
+hodnoty se shlukují po 60 ms (610 / 670), což vysvětluje, proč menší chunk
+nepomohl.
+
+Zároveň drobnost ve vykreslení: odrolování přepisu běží v `useLayoutEffect`
+(`TranscribePage.tsx`), takže slovo na novém řádku se ukáže ve stejném snímku
+a ne o snímek později pod dockem (~17 ms při každém zalomení).
+
+**První měření (2026-11-16, Arc na desktopu):** v6 ~900 ms, v5 ~570 ms.
+Výchozí model se proto vrátil na v5 a v6 je přepínač „Model“ v ladicím
+panelu (sekce Soniox), aby šlo obojí porovnat na iPhonu bez nového buildu.
+Desktop není cílové zařízení, ale +330 ms je víc než šum měření (rozdíly
+chunků byly 60–70 ms). Možné příčiny: v6 čeká na víc kontextu před prvním
+nefinálním textem (vyšší přesnost za cenu latence), nebo je v6 v EU regionu
+čerstvě nasazený a vytížený. Pokud to na iPhonu potvrdí, má smysl napsat
+Sonioxu (support), protože po 15. 12. jiná volba není.
+
+**Postup zkoušky na iPhonu:** appku znovu načíst; stejný čtený text ~1 min
+střídavě s v5 a v6 (aspoň 2× každý, střídat pořadí) a porovnat „slovo → text“
+a „slovo → finál“. Pak běžný rozhovor více lidí: drží
+mluvčí stejně dobře jako dřív? Návrh commitu: `feat: add Soniox model toggle (v5 default, v6
+for testing)`.
 
 ## Rozhodnuto nedělat (neotevírat bez nového důvodu)
 

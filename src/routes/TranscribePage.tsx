@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useSonioxTranscription } from "../hooks/useSonioxTranscription";
 import { useWakeLock } from "../hooks/useWakeLock";
@@ -83,7 +83,11 @@ export default function TranscribePage() {
 
   // Smart Auto-Scroll: scroll to bottom when new transcripts arrive,
   // but only if the user was already near the bottom of the previous content height (threshold 150px).
-  useEffect(() => {
+  // Layout effect, not a passive one: it runs before the browser paints, so a
+  // word that wraps onto a new line is scrolled into view in the same frame.
+  // With `useEffect` that line was first painted under the dock and only
+  // scrolled up one frame (~17 ms) later.
+  useLayoutEffect(() => {
     const container = mainContainerRef.current;
     if (!container) return;
 

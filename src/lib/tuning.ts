@@ -13,7 +13,19 @@ import {
   MIC_NOISE_SUPPRESSION,
 } from "../audio/constants";
 
+/**
+ * Soniox realtime models offered in the test panel. v6 (2026-11-03) has the
+ * same API as v5 but measured ~900 ms "word -> text" in desktop Arc vs ~570 ms
+ * on v5 (2026-11-16), so v5 stays the default until v6 is measured on the
+ * iPhone. v5 is removed on 2026-12-15; after that Soniox routes "stt-rt-v5"
+ * to v6 anyway, so this toggle stops making a difference.
+ */
+export const SONIOX_MODELS = ["stt-rt-v5", "stt-rt-v6"] as const;
+export type SonioxModel = (typeof SONIOX_MODELS)[number];
+
 export interface TuningSettings {
+  /** Soniox model, the only server-side lever on time to first text. */
+  model: SonioxModel;
   /**
    * Soniox endpoint detection makes non-final text turn final sooner, but
    * Soniox documents that forcing early finalization reduces diarization
@@ -56,6 +68,7 @@ export interface TuningSettings {
  * - echo/noise processing and AGC off: see MIC_* constants.
  */
 export const DEFAULT_TUNING: TuningSettings = {
+  model: "stt-rt-v5",
   endpointDetection: false,
   endpointDelayMs: 2000,
   endpointSensitivity: -0.5,

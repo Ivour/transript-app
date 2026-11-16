@@ -36,9 +36,6 @@ import {
 import type { AudioCaptureError, AudioCaptureStatus } from "../audio/types";
 
 
-/** Soniox realtime model used for the live session — stt-rt-v5 is the latest production-grade low-latency model. */
-const SONIOX_MODEL = "stt-rt-v5";
-
 /**
  * Caps how many final tokens we keep in memory/rebuild on each message.
  * Without this, a long (10-30+ min) session would make `rebuildTranscriptState`
@@ -474,7 +471,8 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
       socket.onopen = () => {
         const config: SonioxSessionConfig = {
           api_key: apiKey,
-          model: SONIOX_MODEL,
+          // Model is a tuning toggle (v5 vs v6), see SONIOX_MODELS in lib/tuning.ts.
+          model: tuning.model,
           audio_format: AUDIO_QUALITY_FORMAT[audioQualityMode],
           sample_rate: AUDIO_QUALITY_SAMPLE_RATE[audioQualityMode],
           num_channels: SONIOX_NUM_CHANNELS,

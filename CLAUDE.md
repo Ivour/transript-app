@@ -179,8 +179,17 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
 
 ## Soniox session
 
-- Model `stt-rt-v5`, `language_hints: ["cs"]` striktně,
-  `enable_speaker_diarization`.
+- Model je přepínač v ladicím panelu (`model` v `DEFAULT_TUNING`,
+  `SONIOX_MODELS` v `lib/tuning.ts`), **výchozí `stt-rt-v5`**. `stt-rt-v6`
+  (vyšel 2026-11-03, stejné API) měl v Arcu „slovo → text“ ~900 ms proti
+  ~570 ms na v5 (2026-11-16), proto zůstává výchozí v5, dokud se v6 nezměří
+  na iPhonu. v5 Soniox vypne 2026-12-15 a požadavky na něj přesměruje na v6;
+  pak přepínač nic nemění a je třeba ho odstranit (`VYLEPSENI.md`, bod 14).
+  `language_hints: ["cs"]` striktně, `enable_speaker_diarization`. v6 píše
+  ceny a kódy tak, jak zazní (slovy, bez doplněných pomlček).
+- **Žádný parametr Sonioxu nezkracuje dobu do prvního (nefinálního) textu**
+  (dokumentace prošlá 2026-11-16). Laditelné je jen „zčernání“ (`endpoint_*`,
+  `finalize`). Jedinou pákou na straně Sonioxu je model.
 - **Detekce konce promluvy** (`endpointDetection` v `DEFAULT_TUNING`,
   `lib/tuning.ts`) zrychluje „zčernání“ textu, ale podle dokumentace snižuje
   přesnost diarizace: stejný člověk dostával v další větě nového mluvčího.
@@ -188,7 +197,7 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
   použije `max_endpoint_delay_ms` 2000, `endpoint_sensitivity` −0,5).
   Ostatní Soniox parametry diarizace nemá, počet mluvčích ani práh
   podobnosti hlasů se nastavit nedá. Token `<end>` se filtruje. `endpoint_sensitivity` a
-  `endpoint_latency_adjustment_level` umí jen v5; záporná citlivost se
+  `endpoint_latency_adjustment_level` umí jen v5 a v6; záporná citlivost se
   nedoporučuje, když je úroveň > 0 (nastavení se pak vzájemně ruší).
   Změřeno (2026-10): zapnutá detekce nezrychlila ani první text (611 vs
   610 ms), ani „zčernání“ souvislé řeči jednoho mluvčího (4,7 s v obou
@@ -196,7 +205,8 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
   monologu bez pauz se detekce neprojeví.
 - **Parametry Sonioxu před změnou ověř v dokumentaci**
   (`https://soniox.com/docs/stt/api-reference/websocket-api`); některé
-  parametry jsou jen pro v5 a jiné modely je mohou odmítnout chybou 400.
+  parametry jsou jen pro některé modely a jiné je mohou odmítnout chybou 400.
+  Nové modely a data vypnutí starých jsou na `https://docs.soniox.com/stt/models`.
 - Diarizace v UI: barva (a štítek „Mluvčí N“) se přiděluje jednou za session
   (`SpeakerRegistry` v `useSonioxTranscription.ts`), ořez tokenů ji nemění.
   Nové ID dostane nejdéle nepoužitou ze 4 barev (LRU), aby páté ID (hluk,
