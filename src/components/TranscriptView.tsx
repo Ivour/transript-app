@@ -77,9 +77,13 @@ function TranscriptView({
                 </span>
               )}
               {segment.finalText}
+              {/* No separator here: Soniox tokens carry their own leading
+                  spaces, and the final/non-final boundary can fall mid-word
+                  (sub-word tokens, "leto" + "visko"). An extra space split
+                  such words, the halves wrapped separately and the whole
+                  word jumped to the next line once finalized. */}
               {segment.nonFinalText && (
                 <span className="text-ink-partial">
-                  {segment.finalText ? " " : ""}
                   {segment.nonFinalText}
                 </span>
               )}
