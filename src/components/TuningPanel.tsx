@@ -190,6 +190,7 @@ export default function TuningPanel({
 
   const summary = [
     tuning.model.replace("stt-rt-", ""),
+    tuning.strictLanguageHints ? null : "čeština nestriktně",
     `konec promluvy ${tuning.endpointDetection ? "zap" : "vyp"}`,
     `ozvěna ${onOff(tuning.echoCancellation)}`,
     `šum ${onOff(tuning.noiseSuppression)}`,
@@ -353,7 +354,7 @@ export default function TuningPanel({
           <Section title="Soniox">
             <Row
               label="Model"
-              hint="v6 je novější (lepší přesnost a rozlišení mluvčích v dlouhých rozhovorech), ale v Arcu vycházel pomaleji (~900 ms proti ~570 ms). Porovnej „slovo → text“ stejným textem. v5 Soniox vypne 15. 12. 2026, pak běží vždy v6."
+              hint="Výchozí je v6: novější, lepší přesnost a rozlišení mluvčích v dlouhých rozhovorech, ale text naskakuje později (v Arcu ~900 ms proti ~570 ms na v5, pomalejší je i na webu Sonioxu, jde o model). v5 je rychlejší, Soniox ho ale 15. 12. 2026 vypne, pak běží vždy v6."
             >
               <Choice
                 options={SONIOX_MODELS.map((model) => ({
@@ -365,6 +366,20 @@ export default function TuningPanel({
                 disabled={locked}
               />
             </Row>
+
+            <Row
+              label="Jen čeština (striktně)"
+              hint="Soniox píše jen česky, čeština je tak přesnější. Vypni, když se v rozhovoru mluví i anglicky: cizí věty se pak napíšou v původním jazyce, ale nezřetelná čeština se občas může splést s jiným jazykem."
+            >
+              <Switch
+                checked={tuning.strictLanguageHints}
+                onCheckedChange={(checked) =>
+                  update({ strictLanguageHints: checked })
+                }
+                disabled={locked}
+              />
+            </Row>
+
           </Section>
 
           <Section title="Přenos">
@@ -395,7 +410,8 @@ export default function TuningPanel({
             <p>
               Zpoždění (medián z posledních 40 měření; p90 = tak špatné je
               každé desáté): „slovo → text“ je čas od vyslovení slova po jeho
-              první zobrazení, „slovo → finál“ po zčernání. „Soniox zaostává“
+              první zobrazení (podle časů, které posílá Soniox), „slovo → finál“ po
+              zčernání. „Soniox zaostává“
               je kolik zvuku ještě nezpracoval (velké číslo = problém sítě, ne
               modelu). „Záseky“ jsou chvíle, kdy se zvuk z mikrofonu zdržel v
               aplikaci. „Spojení“ je čas od tapu na Start po navázání spojení.

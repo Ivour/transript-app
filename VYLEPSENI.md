@@ -14,7 +14,7 @@ nápadů. Parametry Sonioxu před změnou ověř v dokumentaci.
 | Latence (první text 610 ms, zčernání 4,7 s) | Změřeno, v aplikaci není co zrychlit |
 | Hlavní vlákno, Blob URL pro worklet, indikátor spojení | Odloženo (body 3, 4, 12) |
 | EU server Sonioxu (bez US zálohy) | **Kód hotový 2026-10-12, čeká na nasazení a měření na iPhonu** (bod 13) |
-| Model Sonioxu `stt-rt-v6` | **v Arcu ~900 ms proti ~570 ms na v5; výchozí zpět v5, v6 přepínačem v panelu, čeká na měření na iPhonu** (bod 14) |
+| Model Sonioxu `stt-rt-v6` | **Pomalejší než v5 (Arc ~900 vs ~570 ms, potvrzeno i na webu Sonioxu) → model, ne appka; výchozí v6 (rozhodl uživatel 2026-11-19), v5 přepínačem do 15. 12.** (bod 14) |
 | Ruční `finalize`, konec věty při Stopu, statistiky, odstranění bufferu | Rozhodnuto nedělat (viz dole) |
 
 ## Výsledky měření (2026-10-10)
@@ -155,7 +155,7 @@ mluvčí fungují jako dřív; v Soniox Console je využití v EU projektu. Pak
 panel: stejný čtený text ~1 min, „slovo → text“ proti 610 / 672 ms (situace
 A). Očekávání ~535 ms. Zčernání a spojení by se zhoršit neměly.
 
-## Bod 14: model `stt-rt-v6` (kód 2026-11-16, čeká na ověření)
+## Bod 14: model `stt-rt-v6` (uzavřeno 2026-11-19)
 
 Soniox vydal 2026-11-03 `stt-rt-v6`. API je stejné jako u v5, mění se jen
 název modelu (`SONIOX_MODEL` v `useSonioxTranscription.ts`). v5 se vypne
@@ -188,11 +188,39 @@ nefinálním textem (vyšší přesnost za cenu latence), nebo je v6 v EU region
 čerstvě nasazený a vytížený. Pokud to na iPhonu potvrdí, má smysl napsat
 Sonioxu (support), protože po 15. 12. jiná volba není.
 
-**Postup zkoušky na iPhonu:** appku znovu načíst; stejný čtený text ~1 min
-střídavě s v5 a v6 (aspoň 2× každý, střídat pořadí) a porovnat „slovo → text“
-a „slovo → finál“. Pak běžný rozhovor více lidí: drží
-mluvčí stejně dobře jako dřív? Návrh commitu: `feat: add Soniox model toggle (v5 default, v6
-for testing)`.
+**Rozbor (2026-11-19):** naše strana se mezi v5 a v6 liší jen názvem modelu,
+dokumentace v6 o latenci nic neříká a nemá žádný parametr na první text.
+„Slovo → text“ ale počítá s časy slov (`end_ms`), které posílá Soniox. Když v6
+značí konce slov o 300 ms dřív než v5, ukáže panel +300 ms, i když text naskočí
+stejně rychle (ověřeno simulací v Node). Hypotézy: (1) artefakt měření, (2) v6
+čeká na víc kontextu, (3) v6 zpomaluje `language_hints_strict` nebo diarizace,
+(4) vytížený EU server. Do panelu přibylo:
+- **„Začátek řeči → text“:** aplikace sama pozná začátek věty po pauze
+  (≥ 600 ms ticha, hlasitost chunku 15 dB nad šumem) a měří čas do prvního
+  textu té věty. Nepoužívá časy Sonioxu. Obsahuje i délku prvního slova, takže
+  je absolutně vyšší než „slovo → text“; jde o rozdíl v5 / v6. Jen v normálním
+  režimu (ne μ-law).
+- **„Model drží zpět“:** `total_audio_proc_ms` − konec nejnovějšího tokenu
+  (hypotéza 2) a interval mezi odpověďmi.
+- Přepínače **„Jen čeština (striktně)“** a **„Rozlišení mluvčích“** (jen pro
+  test, hypotéza 3).
+
+**Závěr (2026-11-19):** v6 je pomalejší i v playgroundu na webu Sonioxu,
+tedy mimo naši aplikaci a nejspíš i mimo EU server. Příčina je v modelu
+(hypotéza 2), ne v měření ani v appce. Opravit se to u nás nedá. Výchozí
+je přesto v6 (rozhodl uživatel 2026-11-19), počítat s ~+300 ms do prvního
+textu; v5 jde pro srovnání zapnout v panelu do jeho vypnutí 2026-12-15. Na oplátku by v6 měl být přesnější a lépe držet mluvčí v dlouhých
+rozhovorech, to stojí za ověření v reálném rozhovoru. Případně napsat
+supportu Sonioxu.
+
+Úklid: „začátek řeči → text“, „model drží zpět“ a přepínač „Rozlišení
+mluvčích“ se odstranily, panel měří zase jen původní čísla. „Jen čeština
+(striktně)“ zůstává jako běžná volba (výchozí zap), aby šla vypnout pro
+rozhovory s angličtinou. Hypotéza 3 (striktní čeština nebo diarizace
+zpomaluje v6) se už netestovala.
+
+Po 2026-12-15 odstranit přepínač modelu (`SONIOX_MODELS`, `model` v
+`DEFAULT_TUNING`).
 
 ## Rozhodnuto nedělat (neotevírat bez nového důvodu)
 

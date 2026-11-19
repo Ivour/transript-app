@@ -195,6 +195,7 @@ function rebuildTranscriptState(
   return { segments, speakers: { ...speakers } };
 }
 
+
 /**
  * Owns the Soniox realtime WebSocket session: fetches a short-lived key via
  * the Supabase Edge Function, opens the connection, configures the
@@ -244,7 +245,10 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
 
 
   const sendOrBuffer = useCallback((chunk: ArrayBuffer) => {
-    latencyTrackerRef.current?.onChunk(performance.now());
+    const tracker = latencyTrackerRef.current;
+    if (tracker) {
+      tracker.onChunk(performance.now());
+    }
     const socket = socketRef.current;
     if (socket && socket.readyState === WebSocket.OPEN && isSessionConfiguredRef.current) {
       socket.send(chunk);
@@ -477,7 +481,9 @@ export function useSonioxTranscription(): UseSonioxTranscriptionResult {
           sample_rate: AUDIO_QUALITY_SAMPLE_RATE[audioQualityMode],
           num_channels: SONIOX_NUM_CHANNELS,
           language_hints: [...SONIOX_LANGUAGE_HINTS],
-          language_hints_strict: true,
+          // Strict Czech is on by default; the panel can turn it off for
+          // conversations with English (see strictLanguageHints in lib/tuning.ts).
+          language_hints_strict: tuning.strictLanguageHints,
           enable_speaker_diarization: true,
           ...(tuning.endpointDetection
             ? {

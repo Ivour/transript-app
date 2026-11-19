@@ -172,7 +172,12 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
   automatickou hlasitost a velikost chunku, plus diagnostika (vzorkování
   mikrofonu, surové ID mluvčího ze Sonioxu) a měření latence (slovo → text,
   slovo → finál, záseky, `lib/latencyStats.ts`; čísla zůstanou po Stopu na
-  obrazovce). Hodnoty se čtou při Startu, neukládají se; mezi měřeními se
+  obrazovce). „Slovo → text“ stojí na časech slov od Sonioxu. Přepínač
+  „Jen čeština (striktně)“ (`language_hints_strict`) je výchozí zapnutý
+  (přesnější čeština); vypíná se pro rozhovory s angličtinou, cizí věty se pak
+  píšou v původním jazyce. Diarizace je vždy zapnutá. Dočasné měření pro test
+  v6 („začátek řeči → text“, „model drží zpět“) a přepínač mluvčích se
+  2026-11-19 odstranily. Hodnoty se čtou při Startu, neukládají se; mezi měřeními se
   proto nic neobnovuje, stačí Stop, přepnout a znovu Start. Každé načtení
   stránky začíná s `DEFAULT_TUNING`.
 - Wake Lock se drží během přepisu (`useWakeLock`).
@@ -180,12 +185,15 @@ Tap na Start → `useSonioxTranscription.start` → `useAudioCapture`
 ## Soniox session
 
 - Model je přepínač v ladicím panelu (`model` v `DEFAULT_TUNING`,
-  `SONIOX_MODELS` v `lib/tuning.ts`), **výchozí `stt-rt-v5`**. `stt-rt-v6`
+  `SONIOX_MODELS` v `lib/tuning.ts`), **výchozí `stt-rt-v6`**. `stt-rt-v6`
   (vyšel 2026-11-03, stejné API) měl v Arcu „slovo → text“ ~900 ms proti
-  ~570 ms na v5 (2026-11-16), proto zůstává výchozí v5, dokud se v6 nezměří
-  na iPhonu. v5 Soniox vypne 2026-12-15 a požadavky na něj přesměruje na v6;
+  ~570 ms na v5 (2026-11-16). Pomalejší je i na webu Sonioxu (playground,
+  2026-11-19), takže jde o model a v appce se to opravit nedá. Výchozí je
+  přesto v6 (rozhodl uživatel 2026-11-19: v5 brzy zmizí, v6 slibuje lepší
+  přesnost a diarizaci); v5 jde do vypnutí zapnout pro srovnání. v5 Soniox vypne 2026-12-15 a požadavky na něj přesměruje na v6;
   pak přepínač nic nemění a je třeba ho odstranit (`VYLEPSENI.md`, bod 14).
-  `language_hints: ["cs"]` striktně, `enable_speaker_diarization`. v6 píše
+  `language_hints: ["cs"]` (striktně podle přepínače, výchozí zap),
+  `enable_speaker_diarization` vždy. v6 píše
   ceny a kódy tak, jak zazní (slovy, bez doplněných pomlček).
 - **Žádný parametr Sonioxu nezkracuje dobu do prvního (nefinálního) textu**
   (dokumentace prošlá 2026-11-16). Laditelné je jen „zčernání“ (`endpoint_*`,
